@@ -36,7 +36,11 @@ fun AccessibilityServiceCard(
             },
         colors = CardDefaults.cardColors(
             containerColor = if (isServiceEnabled) {
+<<<<<<< HEAD
                 MaterialTheme.colorScheme.primaryContainer
+=======
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) // Pink tinted background
+>>>>>>> master
             } else {
                 MaterialTheme.colorScheme.errorContainer
             }
@@ -54,7 +58,11 @@ fun AccessibilityServiceCard(
                 contentDescription = null,
                 modifier = Modifier.size(32.dp),
                 tint = if (isServiceEnabled) {
+<<<<<<< HEAD
                     MaterialTheme.colorScheme.onPrimaryContainer
+=======
+                    MaterialTheme.colorScheme.primary // Pink for enabled state
+>>>>>>> master
                 } else {
                     MaterialTheme.colorScheme.onErrorContainer
                 }
@@ -85,7 +93,11 @@ fun AccessibilityServiceCard(
             Icon(
                 imageVector = Icons.Rounded.Settings,
                 contentDescription = "Open Settings",
+<<<<<<< HEAD
                 tint = MaterialTheme.colorScheme.primary
+=======
+                tint = MaterialTheme.colorScheme.primary // Pink to match the design
+>>>>>>> master
             )
         }
         

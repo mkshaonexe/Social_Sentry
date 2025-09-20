@@ -28,7 +28,11 @@ data class SocialSentrySettings(
         features = listOf(
             BlockableFeature(
                 name = "Reels",
+<<<<<<< HEAD
                 isEnabled = true
+=======
+                isEnabled = false
+>>>>>>> master
             ),
             BlockableFeature(
                 name = "Stories",
@@ -46,7 +50,11 @@ data class SocialSentrySettings(
         features = listOf(
             BlockableFeature(
                 name = "Shorts",
+<<<<<<< HEAD
                 isEnabled = true
+=======
+                isEnabled = false
+>>>>>>> master
             )
         )
     ),
@@ -61,7 +69,11 @@ data class SocialSentrySettings(
         features = listOf(
             BlockableFeature(
                 name = "Reels",
+<<<<<<< HEAD
                 isEnabled = true
+=======
+                isEnabled = false
+>>>>>>> master
             ),
             BlockableFeature(
                 name = "Stories",

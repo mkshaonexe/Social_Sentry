@@ -26,7 +26,11 @@ fun SocialAppCard(
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp)),
         colors = CardDefaults.cardColors(
+<<<<<<< HEAD
             containerColor = MaterialTheme.colorScheme.surfaceVariant
+=======
+            containerColor = MaterialTheme.colorScheme.surface // Dark card background
+>>>>>>> master
         )
     ) {
         Row(
@@ -51,7 +55,12 @@ fun SocialAppCard(
                 Text(
                     text = app.name,
                     style = MaterialTheme.typography.titleLarge,
+<<<<<<< HEAD
                     fontWeight = FontWeight.Medium
+=======
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface
+>>>>>>> master
                 )
             }
             
@@ -62,7 +71,17 @@ fun SocialAppCard(
                         onToggleBlocking(isBlocked)
                     }
                 },
+<<<<<<< HEAD
                 enabled = isAccessibilityEnabled
+=======
+                enabled = isAccessibilityEnabled,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = MaterialTheme.colorScheme.primary,
+                    checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+                    uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    uncheckedTrackColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+                )
+>>>>>>> master
             )
         }
     }

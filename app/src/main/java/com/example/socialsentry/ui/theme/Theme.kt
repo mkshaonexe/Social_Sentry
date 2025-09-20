@@ -12,9 +12,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 
 private val DarkColorScheme = darkColorScheme(
+<<<<<<< HEAD
     primary = Purple80,
     secondary = PurpleGrey80,
     tertiary = Pink80
+=======
+    primary = BrightPink,
+    secondary = PurpleGrey80,
+    tertiary = Pink80,
+    background = DarkGray,
+    surface = CardGray,
+    onBackground = White,
+    onSurface = White,
+    onSurfaceVariant = TextGray
+>>>>>>> master
 )
 
 private val LightColorScheme = lightColorScheme(
@@ -35,9 +46,15 @@ private val LightColorScheme = lightColorScheme(
 
 @Composable
 fun SocialSentryTheme(
+<<<<<<< HEAD
     darkTheme: Boolean = isSystemInDarkTheme(),
     // Dynamic color is available on Android 12+
     dynamicColor: Boolean = true,
+=======
+    darkTheme: Boolean = true, // Use dark theme for the animated toggle screen
+    // Dynamic color is available on Android 12+
+    dynamicColor: Boolean = false, // Disable dynamic colors to use our custom colors
+>>>>>>> master
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {
