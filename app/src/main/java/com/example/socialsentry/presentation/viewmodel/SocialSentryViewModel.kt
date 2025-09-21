@@ -6,6 +6,7 @@ import com.example.socialsentry.data.datastore.SocialSentryDataStore
 import com.example.socialsentry.data.model.BlockableFeature
 import com.example.socialsentry.data.model.SocialApp
 import com.example.socialsentry.data.model.SocialSentrySettings
+import com.example.socialsentry.data.model.WorkoutSettings
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -121,6 +122,32 @@ class SocialSentryViewModel(
                     )
                 }
             }
+        }
+    }
+    
+    // Workout-related methods
+    fun updateWorkoutSettings(workoutSettings: WorkoutSettings) {
+        viewModelScope.launch {
+            dataStore.updateWorkoutSettings(workoutSettings)
+        }
+    }
+    
+    suspend fun getWorkoutSettings(): WorkoutSettings {
+        return dataStore.getWorkoutSettings()
+    }
+    
+    suspend fun getTodayMinutesEarned(): Int {
+        return dataStore.getTodayWorkoutSessions().sumOf { it.minutesEarned }
+    }
+    
+    suspend fun canEarnMoreMinutes(): Boolean {
+        val settings = getWorkoutSettings()
+        val todayMinutes = getTodayMinutesEarned()
+        
+        return if (settings.dailyLimitMinutes > 0) {
+            todayMinutes < settings.dailyLimitMinutes
+        } else {
+            true // No daily limit
         }
     }
 }

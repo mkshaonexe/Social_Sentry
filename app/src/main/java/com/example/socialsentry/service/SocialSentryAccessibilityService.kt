@@ -11,10 +11,13 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import com.example.socialsentry.data.model.WorkoutSettings
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import java.util.TimeZone
+import java.text.SimpleDateFormat
+import java.util.*
 
 class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
 
@@ -82,6 +85,11 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
 
         val reelsFeature = app.features.find { it.name == "Reels" }
         if (reelsFeature?.isEnabled == true && isWithinTimeRange(reelsFeature.startTime, reelsFeature.endTime, currentMinute)) {
+            // Check if user has earned minutes through workout
+            if (hasEarnedMinutesToday()) {
+                Log.d(TAG, "User has earned workout minutes - allowing limited reel access")
+                return
+            }
             blockInstagram(root)
         }
     }
@@ -361,6 +369,42 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
 
     override fun onInterrupt() {
         Log.d(TAG, "SocialSentry Accessibility Service interrupted")
+    }
+
+    // Workout integration methods
+    private var workoutMinutesUsed = 0
+    private var lastWorkoutCheckTime = 0L
+    private val workoutCheckIntervalMs = 30000L // Check every 30 seconds
+    
+    private fun hasEarnedMinutesToday(): Boolean {
+        val now = System.currentTimeMillis()
+        if (now - lastWorkoutCheckTime < workoutCheckIntervalMs) {
+            return workoutMinutesUsed > 0
+        }
+        
+        lastWorkoutCheckTime = now
+        
+        serviceScope.launch {
+            try {
+                val todaySessions = dataStore.getTodayWorkoutSessions()
+                val totalMinutesEarned = todaySessions.sumOf { it.minutesEarned }
+                workoutMinutesUsed = totalMinutesEarned
+                
+                Log.d(TAG, "Workout minutes earned today: $totalMinutesEarned")
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to check workout minutes", e)
+                workoutMinutesUsed = 0
+            }
+        }
+        
+        return workoutMinutesUsed > 0
+    }
+    
+    private fun consumeWorkoutMinutes(minutes: Int) {
+        if (workoutMinutesUsed >= minutes) {
+            workoutMinutesUsed -= minutes
+            Log.d(TAG, "Consumed $minutes workout minutes. Remaining: $workoutMinutesUsed")
+        }
     }
 
     override fun onDestroy() {
