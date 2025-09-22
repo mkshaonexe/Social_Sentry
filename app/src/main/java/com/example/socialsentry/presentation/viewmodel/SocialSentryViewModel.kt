@@ -151,6 +151,16 @@ class SocialSentryViewModel(
         }
     }
 
+    fun addManualUnblockMinutes(minutes: Int) {
+        viewModelScope.launch {
+            val manager = unblockManager ?: UnblockAllowanceManager(
+                context = dataStoreContext(),
+                dataStore = dataStore
+            )
+            manager.addManualMinutes(minutes)
+        }
+    }
+
     fun rescheduleAllowanceWork() {
         viewModelScope.launch {
             val manager = unblockManager ?: UnblockAllowanceManager(

@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Menu
+import androidx.compose.material.icons.rounded.Add
 import com.example.socialsentry.presentation.ui.components.AnimatedToggleSwitch
 import com.example.socialsentry.presentation.viewmodel.SocialSentryViewModel
 import com.example.socialsentry.ui.theme.BrightPink
@@ -31,6 +32,8 @@ import androidx.compose.ui.platform.LocalContext
 import android.widget.Toast
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.delay
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
@@ -41,6 +44,8 @@ fun BlockScrollScreen(
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var nowTick by remember { mutableStateOf(System.currentTimeMillis()) }
+    var showAddTimeDialog by remember { mutableStateOf(false) }
+    var addMinutesText by remember { mutableStateOf("") }
     
     // Calculate if any reels/shorts are currently blocked by feature settings,
     // then derive effective blocking considering temporary unblock state
@@ -65,6 +70,12 @@ fun BlockScrollScreen(
             }
         }
     }
+
+    val startEpoch = settings.temporaryUnblockSessionStartEpochMs
+    val remainingMsActive = if (settings.isTemporaryUnblockActive && startEpoch != null) {
+        val elapsed = (nowTick - startEpoch).coerceAtLeast(0L)
+        (settings.remainingTemporaryUnblockMs - elapsed).coerceAtLeast(0L)
+    } else settings.remainingTemporaryUnblockMs
     
     Box(
         modifier = Modifier
@@ -85,6 +96,30 @@ fun BlockScrollScreen(
                 tint = White,
                 modifier = Modifier.size(28.dp)
             )
+        }
+        // Remaining time and Add button in top right
+        Row(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = formatDuration(remainingMsActive),
+                color = White,
+                fontSize = 14.sp,
+                modifier = Modifier.padding(end = 8.dp)
+            )
+            IconButton(
+                onClick = { showAddTimeDialog = true }
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Add,
+                    contentDescription = "Add Time",
+                    tint = White,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
         }
         Column(
             modifier = Modifier
@@ -207,11 +242,6 @@ fun BlockScrollScreen(
             }
             
             // Countdown moved outside the status card, below it
-            val startEpoch = settings.temporaryUnblockSessionStartEpochMs
-            val remainingMsActive = if (settings.isTemporaryUnblockActive && startEpoch != null) {
-                val elapsed = (nowTick - startEpoch).coerceAtLeast(0L)
-                (settings.remainingTemporaryUnblockMs - elapsed).coerceAtLeast(0L)
-            } else settings.remainingTemporaryUnblockMs
             val timeText = formatDuration(remainingMsActive)
             val countdownText = if (!isReelsBlocked) {
                 "Remaining today: $timeText"
@@ -227,6 +257,52 @@ fun BlockScrollScreen(
                     textAlign = TextAlign.Center
                 )
             }
+        }
+        if (showAddTimeDialog) {
+            AlertDialog(
+                onDismissRequest = { showAddTimeDialog = false },
+                confirmButton = {
+                    TextButton(onClick = {
+                        val minutes = addMinutesText.toIntOrNull() ?: 0
+                        if (minutes <= 0) {
+                            Toast.makeText(context, "Enter minutes > 0", Toast.LENGTH_SHORT).show()
+                            return@TextButton
+                        }
+                        viewModel.addManualUnblockMinutes(minutes)
+                        showAddTimeDialog = false
+                        addMinutesText = ""
+                    }) {
+                        Text("Add")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showAddTimeDialog = false }) { Text("Cancel") }
+                },
+                title = { Text("Add Unblock Time") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        OutlinedTextField(
+                            value = addMinutesText,
+                            onValueChange = { input ->
+                                addMinutesText = input.filter { it.isDigit() }.take(3)
+                            },
+                            label = { Text("Minutes") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf(1, 5, 10).forEach { quick ->
+                                OutlinedButton(onClick = {
+                                    val current = addMinutesText.toIntOrNull() ?: 0
+                                    addMinutesText = (current + quick).toString()
+                                }) {
+                                    Text(text = "+${quick}m")
+                                }
+                            }
+                        }
+                    }
+                }
+            )
         }
     }
 }

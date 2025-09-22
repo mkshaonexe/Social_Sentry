@@ -88,6 +88,27 @@ class UnblockAllowanceManager(
 		}
 	}
 
+	/**
+	 * Manually add minutes to today's temporary unblock allowance.
+	 * If a session is active, reschedules its end accordingly.
+	 */
+	suspend fun addManualMinutes(minutes: Int) {
+		withContext(Dispatchers.IO) {
+			ensureAllowanceDateReset()
+			val safeMinutes = minutes.coerceAtLeast(0)
+			if (safeMinutes == 0) return@withContext
+			val addMs = safeMinutes.toLong() * 60_000L
+			val settings = dataStore.getCurrentSettings()
+			val updated = settings.copy(
+				remainingTemporaryUnblockMs = settings.remainingTemporaryUnblockMs + addMs
+			)
+			dataStore.updateSettings(updated)
+			if (updated.isTemporaryUnblockActive) {
+				scheduleEndWorker(updated)
+			}
+		}
+	}
+
 	suspend fun rescheduleAll() {
 		withContext(Dispatchers.IO) {
 			ensureAllowanceDateReset()
