@@ -1,18 +1,21 @@
 package com.example.socialsentry.presentation.viewmodel
 
+import android.app.Application
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.socialsentry.data.datastore.SocialSentryDataStore
 import com.example.socialsentry.data.model.BlockableFeature
 import com.example.socialsentry.data.model.SocialApp
 import com.example.socialsentry.data.model.SocialSentrySettings
+import com.example.socialsentry.domain.UnblockAllowanceManager
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class SocialSentryViewModel(
-    private val dataStore: SocialSentryDataStore
+    private val dataStore: SocialSentryDataStore,
+    private val unblockManager: UnblockAllowanceManager? = null
 ) : ViewModel() {
 
     val settings: StateFlow<SocialSentrySettings> = dataStore.settingsFlow
@@ -121,6 +124,60 @@ class SocialSentryViewModel(
                     )
                 }
             }
+        }
+    }
+
+    // Temporary unblock API
+    fun startTemporaryUnblock(onInsufficientTime: (() -> Unit)? = null) {
+        viewModelScope.launch {
+            val manager = unblockManager ?: UnblockAllowanceManager(
+                context = dataStoreContext(),
+                dataStore = dataStore
+            )
+            val ok = manager.startTemporaryUnblockNow()
+            if (!ok) {
+                onInsufficientTime?.invoke()
+            }
+        }
+    }
+
+    fun endTemporaryUnblock() {
+        viewModelScope.launch {
+            val manager = unblockManager ?: UnblockAllowanceManager(
+                context = dataStoreContext(),
+                dataStore = dataStore
+            )
+            manager.endTemporaryUnblockAndDecrementAllowance()
+        }
+    }
+
+    fun rescheduleAllowanceWork() {
+        viewModelScope.launch {
+            val manager = unblockManager ?: UnblockAllowanceManager(
+                context = dataStoreContext(),
+                dataStore = dataStore
+            )
+            manager.rescheduleAll()
+        }
+    }
+
+    // Internal utility to write entire settings snapshot (used by settings UI)
+    suspend fun updateSettingsDirect(updated: SocialSentrySettings) {
+        dataStore.updateSettings(updated)
+    }
+
+    private fun dataStoreContext(): android.content.Context {
+        // SocialSentryDataStore already holds androidContext via Koin, but we need a context
+        // The simplest approach is to use reflection via the stored DataStore context itself.
+        // SocialSentryDataStore currently only exposes update methods; construct via context again.
+        // However, to avoid leaks, we can downcast to Application context when possible.
+        return try {
+            val field = SocialSentryDataStore::class.java.getDeclaredField("context")
+            field.isAccessible = true
+            val ctx = field.get(dataStore) as android.content.Context
+            ctx.applicationContext
+        } catch (e: Exception) {
+            throw IllegalStateException("Unable to access DataStore context", e)
         }
     }
 }

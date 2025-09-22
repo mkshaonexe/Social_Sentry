@@ -1,6 +1,7 @@
 package com.example.socialsentry.presentation.ui.screen
 
 import androidx.compose.animation.*
+import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -26,24 +27,43 @@ import com.example.socialsentry.ui.theme.BrightPink
 import com.example.socialsentry.ui.theme.DarkGray
 import com.example.socialsentry.ui.theme.White
 import org.koin.androidx.compose.koinViewModel
+import androidx.compose.ui.platform.LocalContext
+import android.widget.Toast
+import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.delay
 
+@OptIn(ExperimentalAnimationApi::class)
 @Composable
 fun BlockScrollScreen(
     viewModel: SocialSentryViewModel = koinViewModel(),
     onNavigateToSettings: () -> Unit = {}
 ) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    var nowTick by remember { mutableStateOf(System.currentTimeMillis()) }
     
-    // Calculate if any reels/shorts are currently blocked
-    val isReelsBlocked = settings.instagram.features.find { it.name == "Reels" }?.isEnabled == true ||
+    // Calculate if any reels/shorts are currently blocked by feature settings,
+    // then derive effective blocking considering temporary unblock state
+    val isBlockedByFeatures = settings.instagram.features.find { it.name == "Reels" }?.isEnabled == true ||
             settings.youtube.features.find { it.name == "Shorts" }?.isEnabled == true ||
             settings.facebook.features.find { it.name == "Reels" }?.isEnabled == true
+    val isReelsBlocked = !settings.isTemporaryUnblockActive && isBlockedByFeatures
     
     var isToggleEnabled by remember { mutableStateOf(isReelsBlocked) }
     
     // Update toggle state when settings change
     LaunchedEffect(isReelsBlocked) {
         isToggleEnabled = isReelsBlocked
+    }
+    
+    // Live ticker to update countdown while temporary unblock is active
+    LaunchedEffect(settings.isTemporaryUnblockActive) {
+        if (settings.isTemporaryUnblockActive) {
+            while (true) {
+                delay(1000)
+                nowTick = System.currentTimeMillis()
+            }
+        }
     }
     
     Box(
@@ -106,11 +126,26 @@ fun BlockScrollScreen(
             AnimatedToggleSwitch(
                 isEnabled = isToggleEnabled,
                 onToggle = {
-                    isToggleEnabled = !isToggleEnabled
-                    // Toggle reels blocking for all apps
-                    viewModel.toggleFeatureBlocking("Instagram", "Reels", isToggleEnabled)
-                    viewModel.toggleFeatureBlocking("YouTube", "Shorts", isToggleEnabled)
-                    viewModel.toggleFeatureBlocking("Facebook", "Reels", isToggleEnabled)
+                    // Three cases:
+                    // 1) Currently blocked by features (and not unblocked): start temporary unblock using allowance
+                    // 2) Currently unblocked because of active temporary unblock: end the session (re-block)
+                    // 3) Currently unblocked because features are disabled: enable features across apps
+                    if (isBlockedByFeatures && !settings.isTemporaryUnblockActive) {
+                        viewModel.startTemporaryUnblock(onInsufficientTime = {
+                            Toast.makeText(
+                                context,
+                                "No remaining unblock time today — try again tomorrow.",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        })
+                    } else if (settings.isTemporaryUnblockActive) {
+                        viewModel.endTemporaryUnblock()
+                    } else {
+                        viewModel.toggleFeatureBlocking("Instagram", "Reels", true)
+                        viewModel.toggleFeatureBlocking("YouTube", "Shorts", true)
+                        viewModel.toggleFeatureBlocking("Facebook", "Reels", true)
+                    }
+                    // UI mirrors the settings by reacting to flow; do not flip immediately
                 }
             )
             
@@ -148,7 +183,8 @@ fun BlockScrollScreen(
                                     )
                                 )
                             )
-                            .padding(24.dp),
+                            .padding(24.dp)
+                            .heightIn(min = 120.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         AnimatedContent(
@@ -163,11 +199,33 @@ fun BlockScrollScreen(
                                 )
                             },
                             label = "status"
-                        ) { enabled ->
-                            buildAnimatedStatusText(enabled)()
+                        ) { enabledState ->
+                            buildAnimatedStatusText(enabledState)()
                         }
                     }
                 }
+            }
+            
+            // Countdown moved outside the status card, below it
+            val startEpoch = settings.temporaryUnblockSessionStartEpochMs
+            val remainingMsActive = if (settings.isTemporaryUnblockActive && startEpoch != null) {
+                val elapsed = (nowTick - startEpoch).coerceAtLeast(0L)
+                (settings.remainingTemporaryUnblockMs - elapsed).coerceAtLeast(0L)
+            } else settings.remainingTemporaryUnblockMs
+            val timeText = formatDuration(remainingMsActive)
+            val countdownText = if (!isReelsBlocked) {
+                "Remaining today: $timeText"
+            } else if (settings.isTemporaryUnblockActive) {
+                "Unblock ends in: $timeText"
+            } else null
+            if (countdownText != null) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = countdownText,
+                    color = White,
+                    fontSize = 16.sp,
+                    textAlign = TextAlign.Center
+                )
             }
         }
     }
@@ -206,6 +264,14 @@ private fun buildAnimatedStatusText(isEnabled: Boolean): @Composable () -> Unit 
     }
 }
 
+private fun formatDuration(ms: Long): String {
+    val totalSeconds = TimeUnit.MILLISECONDS.toSeconds(ms).coerceAtLeast(0)
+    val minutes = totalSeconds / 60
+    val seconds = totalSeconds % 60
+    return String.format("%d:%02d", minutes, seconds)
+}
+
+@OptIn(ExperimentalAnimationApi::class)
 @Composable
 private fun AnimatedText(words: List<AnimatedWord>) {
     Row(

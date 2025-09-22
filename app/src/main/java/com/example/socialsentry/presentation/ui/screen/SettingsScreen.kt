@@ -25,6 +25,9 @@ import com.example.socialsentry.presentation.ui.components.AccessibilityServiceC
 import com.example.socialsentry.presentation.ui.components.SocialAppCard
 import com.example.socialsentry.presentation.viewmodel.SocialSentryViewModel
 import org.koin.androidx.compose.koinViewModel
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -108,6 +111,52 @@ fun SettingsScreen(
              )
          }
         
+        item {
+            Text(
+                text = "Temporary Unblock",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.padding(top = 8.dp)
+            )
+            val scope = rememberCoroutineScope()
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "Daily allowance (minutes)",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    var minutesText by remember(settings.dailyTemporaryUnblockMinutes) { mutableStateOf(settings.dailyTemporaryUnblockMinutes.toString()) }
+                    OutlinedTextField(
+                        value = minutesText,
+                        onValueChange = { new ->
+                            val filtered = new.filter { it.isDigit() }.take(3)
+                            minutesText = filtered
+                            val value = filtered.toIntOrNull()
+                            if (value != null && value in 0..180) {
+                                val current = viewModel.settings.value
+                                val updated = current.copy(
+                                    dailyTemporaryUnblockMinutes = value,
+                                    remainingTemporaryUnblockMs = current.remainingTemporaryUnblockMs.coerceAtMost(value.toLong() * 60_000L)
+                                )
+                                scope.launch { viewModel.updateSettingsDirect(updated) }
+                            }
+                        },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Resets at local midnight.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
+        }
         }
     }
 }

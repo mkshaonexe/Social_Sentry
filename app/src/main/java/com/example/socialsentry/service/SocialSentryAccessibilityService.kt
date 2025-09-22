@@ -66,6 +66,11 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
 
         val currentMinute = getCurrentMinuteOfDay()
         
+        // If user has an active temporary unblock session, allow content and skip blocking
+        if (settings.isTemporaryUnblockActive) {
+            return
+        }
+        
         when (packageName) {
             "com.instagram.android" -> handleInstagram(root, currentMinute)
             "com.google.android.youtube" -> handleYoutube(root, currentMinute)

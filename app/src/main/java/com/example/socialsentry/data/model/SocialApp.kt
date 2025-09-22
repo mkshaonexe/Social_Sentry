@@ -72,6 +72,16 @@ data class SocialSentrySettings(
                 isEnabled = false
             )
         )
-    )
+    ),
+    // Daily temporary unblock configuration (minutes)
+    val dailyTemporaryUnblockMinutes: Int = 10,
+    // Remaining allowance for the current day in milliseconds
+    val remainingTemporaryUnblockMs: Long = 10L * 60_000L,
+    // Whether a temporary unblock session is currently active
+    val isTemporaryUnblockActive: Boolean = false,
+    // Epoch millis when the current temporary unblock session started (if active)
+    val temporaryUnblockSessionStartEpochMs: Long? = null,
+    // ISO-8601 local date (yyyy-MM-dd) when the allowance was last reset
+    val lastAllowanceResetLocalDate: String? = null
 )
 
