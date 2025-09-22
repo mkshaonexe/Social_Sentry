@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Push-Up Counter</string>
+    
+    <!-- Essential strings for push-up detection -->
+    <string name="permission_camera_rationale">Access to the camera is needed for push-up detection</string>
+    <string name="no_camera_permission">This application cannot run because it does not have the camera permission. The application will now exit.</string>
+    <string name="confidence_indicator">Confidence Indicator</string>
+    <string name="loading">Loading Pose AI model in camera preview...</string>
+    <string name="overlay">Semi-transparent overlay for visual effect</string>
+    
+    <!-- Push-up specific strings -->
+    <string name="push_ups">Push-ups</string>
+    <string name="push_up">Push Up</string>
+    <string name="ready_to_detect">Ready to detect push-ups!</string>
+    <string name="pushups_detected">Push-ups detected! Keep going!</string>
+    <string name="pushup_counter_format">Push-ups: %d</string>
+    <string name="switch_camera">Switch Camera</string>
+</resources>
+
