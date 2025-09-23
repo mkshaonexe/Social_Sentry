@@ -1,10 +1,12 @@
 package com.example.socialsentry.presentation.ui.pushup
 
 import android.Manifest
+import android.app.Activity
 import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
@@ -32,12 +34,6 @@ class PushUpCounterActivity : ComponentActivity() {
 
     private val cameraExecutor = Executors.newSingleThreadExecutor()
 
-    private val requestPermission = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (!granted) finish()
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -48,13 +44,21 @@ class PushUpCounterActivity : ComponentActivity() {
                 var isUsingFrontCamera by remember { mutableStateOf(true) }
                 var currentPose by remember { mutableStateOf<com.google.mlkit.vision.pose.Pose?>(null) }
 
+                val activity = LocalContext.current as Activity
+                val permissionLauncher = rememberLauncherForActivityResult(
+                    ActivityResultContracts.RequestPermission()
+                ) { granted ->
+                    hasCameraPermission = granted
+                    if (!granted) activity.finish()
+                }
+
                 LaunchedEffect(Unit) {
                     hasCameraPermission = ContextCompat.checkSelfPermission(
                         this@PushUpCounterActivity,
                         Manifest.permission.CAMERA
                     ) == PackageManager.PERMISSION_GRANTED
                     if (!hasCameraPermission) {
-                        requestPermission.launch(Manifest.permission.CAMERA)
+                        permissionLauncher.launch(Manifest.permission.CAMERA)
                     }
                 }
 
@@ -204,8 +208,18 @@ private fun AndroidPreview(
             val previewView = PreviewView(context).apply {
                 // Ensure preview keeps aspect ratio with letterboxing to match overlay transform
                 scaleType = PreviewView.ScaleType.FIT_CENTER
+                implementationMode = PreviewView.ImplementationMode.COMPATIBLE
+                layoutParams = android.widget.FrameLayout.LayoutParams(
+                    android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                    android.widget.FrameLayout.LayoutParams.MATCH_PARENT
+                )
             }
-            val overlay = PoseOverlayView(context)
+            val overlay = PoseOverlayView(context).apply {
+                layoutParams = android.widget.FrameLayout.LayoutParams(
+                    android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                    android.widget.FrameLayout.LayoutParams.MATCH_PARENT
+                )
+            }
             
             frameLayout.addView(previewView)
             frameLayout.addView(overlay)
