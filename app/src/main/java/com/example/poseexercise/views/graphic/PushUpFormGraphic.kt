@@ -56,117 +56,81 @@ class PushUpFormGraphic(
             return
         }
 
-        // Draw background for text
-        val backgroundRect = Rect(20, 20, canvas.width - 20, 200)
-        canvas.drawRect(backgroundRect, backgroundPaint)
-
-        // Draw push-up count
-        canvas.drawText(
-            "Push-ups: $pushUpCount",
-            40f,
-            80f,
-            textPaint
-        )
-
-        // Draw current state
-        val statePaint = Paint(textPaint).apply {
-            color = when {
-                currentState.contains("UP") -> Color.GREEN
-                currentState.contains("DOWN") -> Color.YELLOW
-                else -> Color.WHITE
-            }
+        // Create circular button like reference
+        val buttonRadius = 50f
+        val buttonX = canvas.width - buttonRadius - 30f // Position in bottom right like reference
+        val buttonY = canvas.height - buttonRadius - 30f
+        
+        // Draw button background with rounded corners effect
+        
+        // Button background - solid blue like reference
+        val buttonPaint = Paint().apply {
+            color = Color.rgb(0, 120, 255) // Solid blue like reference
+            style = Paint.Style.FILL
+            isAntiAlias = true
         }
+        canvas.drawCircle(buttonX, buttonY, buttonRadius, buttonPaint)
+        
+        // Button border
+        val borderPaint = Paint().apply {
+            color = Color.WHITE
+            style = Paint.Style.STROKE
+            strokeWidth = 4f
+            isAntiAlias = true
+        }
+        canvas.drawCircle(buttonX, buttonY, buttonRadius, borderPaint)
+
+        // Draw push-up count in center of button
+        val countText = "$pushUpCount"
+        val countPaint = Paint().apply {
+            color = Color.WHITE
+            textSize = 48f
+            isAntiAlias = true
+            style = Paint.Style.FILL
+            textAlign = Paint.Align.CENTER
+            isFakeBoldText = true
+        }
+        
         canvas.drawText(
-            currentState,
-            40f,
-            130f,
-            statePaint
+            countText,
+            buttonX,
+            buttonY + 16f, // +16f to center vertically in circle
+            countPaint
         )
 
-        // Draw form feedback
-        canvas.drawText(
-            formFeedback,
-            40f,
-            180f,
-            feedbackPaint
-        )
-
-        // Draw form indicators on the pose
-        drawFormIndicators(canvas)
+        // Minimal form indicators - only show if not in correct position
+        if (!isInCorrectPosition) {
+            drawMinimalFormIndicators(canvas)
+        }
     }
 
-    private fun drawFormIndicators(canvas: Canvas) {
-        val leftShoulder = pose.getPoseLandmark(PoseLandmark.LEFT_SHOULDER)
-        val rightShoulder = pose.getPoseLandmark(PoseLandmark.RIGHT_SHOULDER)
+    private fun drawMinimalFormIndicators(canvas: Canvas) {
         val leftElbow = pose.getPoseLandmark(PoseLandmark.LEFT_ELBOW)
         val rightElbow = pose.getPoseLandmark(PoseLandmark.RIGHT_ELBOW)
-        val leftWrist = pose.getPoseLandmark(PoseLandmark.LEFT_WRIST)
-        val rightWrist = pose.getPoseLandmark(PoseLandmark.RIGHT_WRIST)
-        val leftHip = pose.getPoseLandmark(PoseLandmark.LEFT_HIP)
-        val rightHip = pose.getPoseLandmark(PoseLandmark.RIGHT_HIP)
 
-        // Set form indicator color based on correctness
-        formIndicatorPaint.color = if (isInCorrectPosition) {
-            Color.GREEN
-        } else {
-            Color.RED
+        // Set form indicator color - only red for incorrect form
+        formIndicatorPaint.color = Color.RED
+        formIndicatorPaint.strokeWidth = 6f
+
+        // Draw simple circles at elbows to indicate incorrect form
+        if (leftElbow != null && leftElbow.inFrameLikelihood > 0.5f) {
+            canvas.drawCircle(
+                translateX(leftElbow.position.x),
+                translateY(leftElbow.position.y),
+                25f,
+                formIndicatorPaint
+            )
         }
-
-        // Draw elbow form indicators
-        if (leftShoulder != null && leftElbow != null && leftWrist != null) {
-            drawFormLine(canvas, leftShoulder, leftElbow, leftWrist)
-        }
-        if (rightShoulder != null && rightElbow != null && rightWrist != null) {
-            drawFormLine(canvas, rightShoulder, rightElbow, rightWrist)
-        }
-
-        // Draw body alignment indicator (spine)
-        if (leftShoulder != null && rightShoulder != null && leftHip != null && rightHip != null) {
-            val shoulderMidX = (leftShoulder.position.x + rightShoulder.position.x) / 2f
-            val shoulderMidY = (leftShoulder.position.y + rightShoulder.position.y) / 2f
-            val hipMidX = (leftHip.position.x + rightHip.position.x) / 2f
-            val hipMidY = (leftHip.position.y + rightHip.position.y) / 2f
-
-            canvas.drawLine(
-                translateX(shoulderMidX),
-                translateY(shoulderMidY),
-                translateX(hipMidX),
-                translateY(hipMidY),
+        
+        if (rightElbow != null && rightElbow.inFrameLikelihood > 0.5f) {
+            canvas.drawCircle(
+                translateX(rightElbow.position.x),
+                translateY(rightElbow.position.y),
+                25f,
                 formIndicatorPaint
             )
         }
     }
 
-    private fun drawFormLine(
-        canvas: Canvas,
-        shoulder: PoseLandmark,
-        elbow: PoseLandmark,
-        wrist: PoseLandmark
-    ) {
-        // Draw shoulder to elbow
-        canvas.drawLine(
-            translateX(shoulder.position.x),
-            translateY(shoulder.position.y),
-            translateX(elbow.position.x),
-            translateY(elbow.position.y),
-            formIndicatorPaint
-        )
-
-        // Draw elbow to wrist
-        canvas.drawLine(
-            translateX(elbow.position.x),
-            translateY(elbow.position.y),
-            translateX(wrist.position.x),
-            translateY(wrist.position.y),
-            formIndicatorPaint
-        )
-
-        // Draw angle indicator at elbow
-        canvas.drawCircle(
-            translateX(elbow.position.x),
-            translateY(elbow.position.y),
-            20f,
-            formIndicatorPaint
-        )
-    }
+    // Removed old drawFormLine method as it's no longer needed
 }

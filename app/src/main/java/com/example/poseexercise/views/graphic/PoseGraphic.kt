@@ -38,7 +38,8 @@ internal constructor(
     private val leftPaint: Paint = Paint()
     private val rightPaint: Paint = Paint()
     private val whitePaint: Paint = Paint()
-    private val jointPaint: Paint = Paint()
+    private val jointFillPaint: Paint = Paint()
+    private val jointStrokePaint: Paint = Paint()
     private val connectionPaint: Paint = Paint()
 
     init {
@@ -51,9 +52,13 @@ internal constructor(
             style = Paint.Style.STROKE
         }
         
+        // Use exact cyan/turquoise color to match reference image
+        val skeletonColor = Color.rgb(0, 255, 255) // Bright cyan exactly like reference
+        val jointCenterColor = skeletonColor // Make joints same color as lines
+        
         leftPaint.apply {
             strokeWidth = STROKE_WIDTH
-            color = Color.GREEN
+            color = skeletonColor
             isAntiAlias = true
             style = Paint.Style.STROKE
             strokeCap = Paint.Cap.ROUND
@@ -61,23 +66,29 @@ internal constructor(
         
         rightPaint.apply {
             strokeWidth = STROKE_WIDTH
-            color = Color.CYAN  // Changed to cyan for better contrast
+            color = skeletonColor
             isAntiAlias = true
             style = Paint.Style.STROKE
             strokeCap = Paint.Cap.ROUND
         }
         
-        // Paint for joint points (filled circles)
-        jointPaint.apply {
-            color = Color.RED
+        // Joint paints: solid cyan circles like reference
+        jointFillPaint.apply {
+            color = skeletonColor
             isAntiAlias = true
             style = Paint.Style.FILL
         }
+        jointStrokePaint.apply {
+            color = skeletonColor
+            isAntiAlias = true
+            style = Paint.Style.STROKE
+            strokeWidth = STROKE_WIDTH
+        }
         
-        // Paint for main body connections
+        // Paint for main body connections (cyan)
         connectionPaint.apply {
             strokeWidth = STROKE_WIDTH * 1.5f
-            color = Color.MAGENTA
+            color = skeletonColor
             isAntiAlias = true
             style = Paint.Style.STROKE
             strokeCap = Paint.Cap.ROUND
@@ -90,34 +101,29 @@ internal constructor(
             return
         }
 
-        // Draw all the joint points with enhanced visibility
+        // Draw only body joint points (exclude all face landmarks)
+        val faceTypes = setOf(
+            PoseLandmark.NOSE,
+            PoseLandmark.LEFT_EYE_INNER, PoseLandmark.LEFT_EYE, PoseLandmark.LEFT_EYE_OUTER,
+            PoseLandmark.RIGHT_EYE_INNER, PoseLandmark.RIGHT_EYE, PoseLandmark.RIGHT_EYE_OUTER,
+            PoseLandmark.LEFT_EAR, PoseLandmark.RIGHT_EAR,
+            PoseLandmark.LEFT_MOUTH, PoseLandmark.RIGHT_MOUTH
+        )
+        
         for (landmark in landmarks) {
-            // Use different colors for key joints vs other landmarks
-            val paint = when (landmark.landmarkType) {
-                PoseLandmark.LEFT_SHOULDER, PoseLandmark.RIGHT_SHOULDER,
-                PoseLandmark.LEFT_HIP, PoseLandmark.RIGHT_HIP,
-                PoseLandmark.LEFT_ELBOW, PoseLandmark.RIGHT_ELBOW,
-                PoseLandmark.LEFT_KNEE, PoseLandmark.RIGHT_KNEE -> jointPaint
-                else -> whitePaint
-            }
-            drawPoint(canvas, landmark, paint)
-            if (visualizeZ && rescaleZForVisualization) {
-                zMin = kotlin.math.min(zMin, landmark.position3D.z)
-                zMax = kotlin.math.max(zMax, landmark.position3D.z)
+            // Skip all face landmarks
+            if (landmark.landmarkType !in faceTypes) {
+                drawJoint(canvas, landmark)
+                if (visualizeZ && rescaleZForVisualization) {
+                    zMin = kotlin.math.min(zMin, landmark.position3D.z)
+                    zMax = kotlin.math.max(zMax, landmark.position3D.z)
+                }
             }
         }
 
-        val nose = pose.getPoseLandmark(PoseLandmark.NOSE)
-        val leftEyeInner = pose.getPoseLandmark(PoseLandmark.LEFT_EYE_INNER)
-        val leftEye = pose.getPoseLandmark(PoseLandmark.LEFT_EYE)
-        val leftEyeOuter = pose.getPoseLandmark(PoseLandmark.LEFT_EYE_OUTER)
-        val rightEyeInner = pose.getPoseLandmark(PoseLandmark.RIGHT_EYE_INNER)
-        val rightEye = pose.getPoseLandmark(PoseLandmark.RIGHT_EYE)
-        val rightEyeOuter = pose.getPoseLandmark(PoseLandmark.RIGHT_EYE_OUTER)
-        val leftEar = pose.getPoseLandmark(PoseLandmark.LEFT_EAR)
-        val rightEar = pose.getPoseLandmark(PoseLandmark.RIGHT_EAR)
-        val leftMouth = pose.getPoseLandmark(PoseLandmark.LEFT_MOUTH)
-        val rightMouth = pose.getPoseLandmark(PoseLandmark.RIGHT_MOUTH)
+        // Face landmarks removed on purpose for cleaner UI
+
+        // Get all body landmarks (exclude face)
 
         val leftShoulder = pose.getPoseLandmark(PoseLandmark.LEFT_SHOULDER)
         val rightShoulder = pose.getPoseLandmark(PoseLandmark.RIGHT_SHOULDER)
@@ -143,40 +149,14 @@ internal constructor(
         val leftFootIndex = pose.getPoseLandmark(PoseLandmark.LEFT_FOOT_INDEX)
         val rightFootIndex = pose.getPoseLandmark(PoseLandmark.RIGHT_FOOT_INDEX)
 
-        // Enhanced face connections with better visibility
-        drawLine(canvas, nose, leftEyeInner, whitePaint)
-        drawLine(canvas, leftEyeInner, leftEye, whitePaint)
-        drawLine(canvas, leftEye, leftEyeOuter, whitePaint)
-        drawLine(canvas, leftEyeOuter, leftEar, whitePaint)
-        drawLine(canvas, nose, rightEyeInner, whitePaint)
-        drawLine(canvas, rightEyeInner, rightEye, whitePaint)
-        drawLine(canvas, rightEye, rightEyeOuter, whitePaint)
-        drawLine(canvas, rightEyeOuter, rightEar, whitePaint)
-        drawLine(canvas, leftMouth, rightMouth, whitePaint)
+        // No face connections - completely removed
 
-        // Main body structure with enhanced visibility
+        // Body skeleton only (no face parts)
+        // Main body structure
         drawLine(canvas, leftShoulder, rightShoulder, connectionPaint)
         drawLine(canvas, leftHip, rightHip, connectionPaint)
         
-        // Core body connections (important for push-up detection)
-        drawLine(canvas, leftShoulder, leftHip, connectionPaint)
-        drawLine(canvas, rightShoulder, rightHip, connectionPaint)
-        
-        // Spine representation
-        if (leftShoulder != null && rightShoulder != null && leftHip != null && rightHip != null) {
-            val shoulderMidX = (leftShoulder.position.x + rightShoulder.position.x) / 2
-            val shoulderMidY = (leftShoulder.position.y + rightShoulder.position.y) / 2
-            val hipMidX = (leftHip.position.x + rightHip.position.x) / 2
-            val hipMidY = (leftHip.position.y + rightHip.position.y) / 2
-            
-            canvas.drawLine(
-                translateX(shoulderMidX), translateY(shoulderMidY),
-                translateX(hipMidX), translateY(hipMidY),
-                connectionPaint
-            )
-        }
-
-        // Left body
+        // Left side of body
         drawLine(canvas, leftShoulder, leftElbow, leftPaint)
         drawLine(canvas, leftElbow, leftWrist, leftPaint)
         drawLine(canvas, leftShoulder, leftHip, leftPaint)
@@ -189,7 +169,7 @@ internal constructor(
         drawLine(canvas, leftAnkle, leftHeel, leftPaint)
         drawLine(canvas, leftHeel, leftFootIndex, leftPaint)
 
-        // Right body
+        // Right side of body
         drawLine(canvas, rightShoulder, rightElbow, rightPaint)
         drawLine(canvas, rightElbow, rightWrist, rightPaint)
         drawLine(canvas, rightShoulder, rightHip, rightPaint)
@@ -215,10 +195,11 @@ internal constructor(
         }
     }
 
-    private fun drawPoint(canvas: Canvas, landmark: PoseLandmark, paint: Paint) {
+    private fun drawJoint(canvas: Canvas, landmark: PoseLandmark) {
         val point = landmark.position3D
+        // Solid cyan circle like reference
         updatePaintColorByZValue(
-            paint,
+            jointFillPaint,
             canvas,
             visualizeZ,
             rescaleZForVisualization,
@@ -226,7 +207,9 @@ internal constructor(
             zMin,
             zMax
         )
-        canvas.drawCircle(translateX(point.x), translateY(point.y), DOT_RADIUS, paint)
+        val cx = translateX(point.x)
+        val cy = translateY(point.y)
+        canvas.drawCircle(cx, cy, JOINT_OUTER_RADIUS, jointFillPaint)
     }
 
     private fun drawLine(
@@ -260,8 +243,9 @@ internal constructor(
     }
 
     companion object {
-        private const val DOT_RADIUS = 8.0f  // Increased for better visibility
+        private const val JOINT_OUTER_RADIUS = 10.0f
+        private const val JOINT_INNER_RADIUS = 5.0f
         private const val IN_FRAME_LIKELIHOOD_TEXT_SIZE = 30.0f  // Increased text size
-        private const val STROKE_WIDTH = 6.0f  // Increased stroke width
+        private const val STROKE_WIDTH = 7.0f  // Slightly thicker like reference
     }
 }
