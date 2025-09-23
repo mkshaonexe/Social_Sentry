@@ -143,21 +143,25 @@ class SocialSentryViewModel(
 
     fun endTemporaryUnblock() {
         viewModelScope.launch {
+            android.util.Log.d("SocialSentryViewModel", "endTemporaryUnblock called")
             val manager = unblockManager ?: UnblockAllowanceManager(
                 context = dataStoreContext(),
                 dataStore = dataStore
             )
             manager.endTemporaryUnblockAndDecrementAllowance()
+            android.util.Log.d("SocialSentryViewModel", "endTemporaryUnblock completed")
         }
     }
 
     fun addManualUnblockMinutes(minutes: Int) {
         viewModelScope.launch {
+            android.util.Log.d("SocialSentryViewModel", "addManualUnblockMinutes called with $minutes minutes")
             val manager = unblockManager ?: UnblockAllowanceManager(
                 context = dataStoreContext(),
                 dataStore = dataStore
             )
             manager.addManualMinutes(minutes)
+            android.util.Log.d("SocialSentryViewModel", "addManualUnblockMinutes completed")
         }
     }
 

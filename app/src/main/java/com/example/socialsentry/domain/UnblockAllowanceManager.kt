@@ -99,10 +99,13 @@ class UnblockAllowanceManager(
 			if (safeMinutes == 0) return@withContext
 			val addMs = safeMinutes.toLong() * 60_000L
 			val settings = dataStore.getCurrentSettings()
+			val beforeMs = settings.remainingTemporaryUnblockMs
 			val updated = settings.copy(
 				remainingTemporaryUnblockMs = settings.remainingTemporaryUnblockMs + addMs
 			)
 			dataStore.updateSettings(updated)
+			// Log for debugging
+			android.util.Log.d("UnblockManager", "Added $safeMinutes minutes. Before: ${beforeMs/60000}min, After: ${updated.remainingTemporaryUnblockMs/60000}min")
 			if (updated.isTemporaryUnblockActive) {
 				scheduleEndWorker(updated)
 			}

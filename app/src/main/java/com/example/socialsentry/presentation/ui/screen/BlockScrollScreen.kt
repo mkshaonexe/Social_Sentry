@@ -48,6 +48,12 @@ fun BlockScrollScreen(
     onNavigateToSettings: () -> Unit = {}
 ) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
+    
+    // Force recomposition when settings change
+    LaunchedEffect(settings.remainingTemporaryUnblockMs) {
+        // This will trigger recomposition when remaining time changes
+        android.util.Log.d("BlockScrollScreen", "Settings updated - remainingMs: ${settings.remainingTemporaryUnblockMs}, isActive: ${settings.isTemporaryUnblockActive}")
+    }
     val context = LocalContext.current
     var nowTick by remember { mutableStateOf(System.currentTimeMillis()) }
     var showAddTimeDialog by remember { mutableStateOf(false) }
@@ -183,11 +189,14 @@ fun BlockScrollScreen(
             AnimatedToggleSwitch(
                 isEnabled = isToggleEnabled,
                 onToggle = {
+                    android.util.Log.d("BlockScrollScreen", "Toggle pressed - isBlockedByFeatures: $isBlockedByFeatures, isTemporaryUnblockActive: ${settings.isTemporaryUnblockActive}")
+                    
                     // Three cases:
                     // 1) Currently blocked by features (and not unblocked): start temporary unblock using allowance
                     // 2) Currently unblocked because of active temporary unblock: end the session (re-block)
                     // 3) Currently unblocked because features are disabled: enable features across apps
                     if (isBlockedByFeatures && !settings.isTemporaryUnblockActive) {
+                        Toast.makeText(context, "Starting unblock session...", Toast.LENGTH_SHORT).show()
                         viewModel.startTemporaryUnblock(onInsufficientTime = {
                             Toast.makeText(
                                 context,
@@ -196,8 +205,10 @@ fun BlockScrollScreen(
                             ).show()
                         })
                     } else if (settings.isTemporaryUnblockActive) {
+                        Toast.makeText(context, "Ending unblock session...", Toast.LENGTH_SHORT).show()
                         viewModel.endTemporaryUnblock()
                     } else {
+                        Toast.makeText(context, "Enabling blocking features...", Toast.LENGTH_SHORT).show()
                         viewModel.toggleFeatureBlocking("Instagram", "Reels", true)
                         viewModel.toggleFeatureBlocking("YouTube", "Shorts", true)
                         viewModel.toggleFeatureBlocking("Facebook", "Reels", true)
@@ -290,7 +301,14 @@ fun BlockScrollScreen(
                             Toast.makeText(context, "Enter minutes > 0", Toast.LENGTH_SHORT).show()
                             return@TextButton
                         }
-                        viewModel.addManualUnblockMinutes(minutes)
+                        scope.launch {
+                            try {
+                                viewModel.addManualUnblockMinutes(minutes)
+                                Toast.makeText(context, "Added $minutes minutes successfully!", Toast.LENGTH_LONG).show()
+                            } catch (e: Exception) {
+                                Toast.makeText(context, "Error adding minutes: ${e.message}", Toast.LENGTH_LONG).show()
+                            }
+                        }
                         showAddTimeDialog = false
                         addMinutesText = ""
                     }) {

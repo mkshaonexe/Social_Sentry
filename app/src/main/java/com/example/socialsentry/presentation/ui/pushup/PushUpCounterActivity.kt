@@ -45,7 +45,7 @@ class PushUpCounterActivity : ComponentActivity() {
                 var count by remember { mutableStateOf(0) }
                 val detector = remember { ImprovedPushUpDetector() }
                 var hasCameraPermission by remember { mutableStateOf(false) }
-                var isUsingFrontCamera by remember { mutableStateOf(false) }
+                var isUsingFrontCamera by remember { mutableStateOf(true) }
                 var currentPose by remember { mutableStateOf<com.google.mlkit.vision.pose.Pose?>(null) }
 
                 LaunchedEffect(Unit) {
