@@ -206,8 +206,8 @@ private fun AndroidPreview(
         factory = {
             val frameLayout = android.widget.FrameLayout(context)
             val previewView = PreviewView(context).apply {
-                // Ensure preview keeps aspect ratio with letterboxing to match overlay transform
-                scaleType = PreviewView.ScaleType.FIT_CENTER
+                // Fill the entire view with the camera stream to avoid letterboxing
+                scaleType = PreviewView.ScaleType.FILL_CENTER
                 implementationMode = PreviewView.ImplementationMode.COMPATIBLE
                 layoutParams = android.widget.FrameLayout.LayoutParams(
                     android.widget.FrameLayout.LayoutParams.MATCH_PARENT,

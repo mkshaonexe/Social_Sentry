@@ -48,8 +48,8 @@ class PoseOverlayView @JvmOverloads constructor(
             val scaleX = width.toFloat() / imageWidth.toFloat()
             val scaleY = height.toFloat() / imageHeight.toFloat()
             
-            // Use uniform scaling to maintain aspect ratio
-            scaleFactor = minOf(scaleX, scaleY)
+            // Use uniform scaling to match PreviewView.ScaleType.FILL_CENTER
+            scaleFactor = maxOf(scaleX, scaleY)
             
             // Center the scaled image in the view
             val scaledImageWidth = imageWidth * scaleFactor
