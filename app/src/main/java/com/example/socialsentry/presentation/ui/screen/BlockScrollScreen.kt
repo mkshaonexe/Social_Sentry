@@ -102,7 +102,10 @@ fun BlockScrollScreen(
     val startEpoch = settings.temporaryUnblockSessionStartEpochMs
     val remainingMsActive = if (settings.isTemporaryUnblockActive && startEpoch != null) {
         val elapsed = (nowTick - startEpoch).coerceAtLeast(0L)
-        (settings.remainingTemporaryUnblockMs - elapsed).coerceAtLeast(0L)
+        val allowanceRemaining = (settings.remainingTemporaryUnblockMs - elapsed).coerceAtLeast(0L)
+        val sessionCap = settings.maxTemporaryUnblockSessionMs.coerceAtLeast(0L)
+        val sessionRemainingCap = (sessionCap - elapsed).coerceAtLeast(0L)
+        minOf(allowanceRemaining, sessionRemainingCap)
     } else settings.remainingTemporaryUnblockMs
     
     Box(

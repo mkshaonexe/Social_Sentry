@@ -77,6 +77,8 @@ data class SocialSentrySettings(
     val dailyTemporaryUnblockMinutes: Int = 10,
     // Remaining allowance for the current day in milliseconds
     val remainingTemporaryUnblockMs: Long = 10L * 60_000L,
+    // Maximum duration allowed per temporary unblock session in milliseconds
+    val maxTemporaryUnblockSessionMs: Long = 10L * 60_000L,
     // Whether a temporary unblock session is currently active
     val isTemporaryUnblockActive: Boolean = false,
     // Epoch millis when the current temporary unblock session started (if active)

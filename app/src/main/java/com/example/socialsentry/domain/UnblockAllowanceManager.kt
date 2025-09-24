@@ -64,7 +64,10 @@ class UnblockAllowanceManager(
 			if (!settings.isTemporaryUnblockActive) return@withContext
 			val startedAt = settings.temporaryUnblockSessionStartEpochMs ?: return@withContext
 			val elapsed = (System.currentTimeMillis() - startedAt).coerceAtLeast(0L)
-			val remaining = (settings.remainingTemporaryUnblockMs - elapsed).coerceAtLeast(0L)
+			val sessionConsumption = elapsed
+				.coerceAtMost(settings.maxTemporaryUnblockSessionMs)
+				.coerceAtMost(settings.remainingTemporaryUnblockMs)
+			val remaining = (settings.remainingTemporaryUnblockMs - sessionConsumption).coerceAtLeast(0L)
 			val updated = settings.copy(
 				isTemporaryUnblockActive = false,
 				remainingTemporaryUnblockMs = remaining,
@@ -128,12 +131,25 @@ class UnblockAllowanceManager(
 		val now = System.currentTimeMillis()
 		val elapsed = (now - start).coerceAtLeast(0L)
 		val remainingForSession = (settings.remainingTemporaryUnblockMs - elapsed).coerceAtLeast(0L)
-		if (remainingForSession <= 0L) {
-			// Let a background call zero it
+		val sessionCap = settings.maxTemporaryUnblockSessionMs.coerceAtLeast(0L)
+		val sessionRemainingCap = (sessionCap - elapsed).coerceAtLeast(0L)
+		val delayMs = minOf(remainingForSession, sessionRemainingCap)
+		if (delayMs <= 0L) {
+			// Trigger immediate end to enforce cap or depleted allowance
+			val immediateRequest = OneTimeWorkRequestBuilder<EndUnblockWorker>()
+				.setInitialDelay(0L, TimeUnit.MILLISECONDS)
+				.setConstraints(Constraints.NONE)
+				.addTag(END_UNBLOCK_WORK_NAME)
+				.build()
+			workManager.enqueueUniqueWork(
+				END_UNBLOCK_WORK_NAME,
+				ExistingWorkPolicy.REPLACE,
+				immediateRequest
+			)
 			return
 		}
 		val request = OneTimeWorkRequestBuilder<EndUnblockWorker>()
-			.setInitialDelay(remainingForSession, TimeUnit.MILLISECONDS)
+			.setInitialDelay(delayMs, TimeUnit.MILLISECONDS)
 			.setConstraints(Constraints.NONE)
 			.addTag(END_UNBLOCK_WORK_NAME)
 			.build()
@@ -176,7 +192,7 @@ class EndUnblockWorker(
 	override suspend fun doWork(): Result {
 		val manager = UnblockAllowanceManager(applicationContext, dataStore)
 		// When this fires, session should be ended and allowance decremented to zero
-		manager.forceEndNowAndZeroAllowance()
+		manager.endTemporaryUnblockAndDecrementAllowance()
 		return Result.success()
 	}
 }

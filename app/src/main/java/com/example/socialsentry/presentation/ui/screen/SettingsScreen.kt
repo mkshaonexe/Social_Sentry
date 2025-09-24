@@ -157,6 +157,11 @@ fun SettingsScreen(
                         text = "Resets at local midnight.",
                         style = MaterialTheme.typography.bodyMedium
                     )
+				Spacer(modifier = Modifier.height(4.dp))
+				Text(
+					text = "Each unblock session automatically re-enables blocking after 10 minutes.",
+					style = MaterialTheme.typography.bodySmall
+				)
 
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
