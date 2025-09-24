@@ -114,6 +114,8 @@ fun SettingsScreen(
              )
          }
         
+        // Temporary Unblock section hidden as requested
+        /*
         item {
             Text(
                 text = "Temporary Unblock",
@@ -227,6 +229,7 @@ fun SettingsScreen(
                 }
             }
         }
+        */
         }
     }
 }
