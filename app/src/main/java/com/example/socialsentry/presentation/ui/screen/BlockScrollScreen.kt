@@ -45,7 +45,8 @@ import kotlinx.coroutines.launch
 @Composable
 fun BlockScrollScreen(
     viewModel: SocialSentryViewModel = koinViewModel(),
-    onNavigateToSettings: () -> Unit = {}
+    onNavigateToSettings: () -> Unit = {},
+    onRequestNotificationPermission: () -> Unit = {}
 ) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     
@@ -211,10 +212,31 @@ fun BlockScrollScreen(
                         Toast.makeText(context, "Ending unblock session...", Toast.LENGTH_SHORT).show()
                         viewModel.endTemporaryUnblock()
                     } else {
-                        Toast.makeText(context, "Enabling blocking features...", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Enabling reels blocking...", Toast.LENGTH_SHORT).show()
+                        
+                        // Auto-enable reels blocking for all platforms first
                         viewModel.toggleFeatureBlocking("Instagram", "Reels", true)
                         viewModel.toggleFeatureBlocking("YouTube", "Shorts", true)
                         viewModel.toggleFeatureBlocking("Facebook", "Reels", true)
+                        
+                        // Request notification permission and show notification
+                        scope.launch {
+                            val notificationManager = com.example.socialsentry.domain.SocialSentryNotificationManager(context)
+                            
+                            // Request permission first
+                            onRequestNotificationPermission()
+                            
+                            // Wait a bit for permission dialog to be handled, then show notification
+                            delay(1000)
+                            
+                            // Check if we have permission and show notification
+                            if (notificationManager.hasNotificationPermission()) {
+                                notificationManager.showReelsBlockedNotification()
+                            } else {
+                                // If no permission, show a toast instead
+                                Toast.makeText(context, "✅ Reels blocking is now enabled!", Toast.LENGTH_LONG).show()
+                            }
+                        }
                     }
                     // UI mirrors the settings by reacting to flow; do not flip immediately
                 }
