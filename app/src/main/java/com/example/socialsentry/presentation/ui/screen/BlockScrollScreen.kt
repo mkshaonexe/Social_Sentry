@@ -22,6 +22,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Lock
 import com.example.socialsentry.presentation.ui.components.AnimatedToggleSwitch
 import com.example.socialsentry.presentation.viewmodel.SocialSentryViewModel
 import com.example.socialsentry.ui.theme.BrightPink
@@ -34,6 +35,7 @@ import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.delay
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import android.app.Activity
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -58,6 +60,8 @@ fun BlockScrollScreen(
     var nowTick by remember { mutableStateOf(System.currentTimeMillis()) }
     var showAddTimeDialog by remember { mutableStateOf(false) }
     var addMinutesText by remember { mutableStateOf("") }
+    var showDeveloperMode by remember { mutableStateOf(false) }
+    var developerPassword by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
     
     // Push-up activity launcher
@@ -296,62 +300,133 @@ fun BlockScrollScreen(
         }
         if (showAddTimeDialog) {
             AlertDialog(
-                onDismissRequest = { showAddTimeDialog = false },
+                onDismissRequest = { 
+                    showAddTimeDialog = false
+                    showDeveloperMode = false
+                    developerPassword = ""
+                },
                 confirmButton = {
-                    TextButton(onClick = {
-                        val minutes = addMinutesText.toIntOrNull() ?: 0
-                        if (minutes <= 0) {
-                            Toast.makeText(context, "Enter minutes > 0", Toast.LENGTH_SHORT).show()
-                            return@TextButton
-                        }
-                        scope.launch {
-                            try {
-                                viewModel.addManualUnblockMinutes(minutes)
-                                Toast.makeText(context, "Added $minutes minutes successfully!", Toast.LENGTH_LONG).show()
-                            } catch (e: Exception) {
-                                Toast.makeText(context, "Error adding minutes: ${e.message}", Toast.LENGTH_LONG).show()
+                    if (showDeveloperMode) {
+                        TextButton(onClick = {
+                            if (developerPassword == "mkshaon31") {
+                                val minutes = addMinutesText.toIntOrNull() ?: 0
+                                if (minutes <= 0) {
+                                    Toast.makeText(context, "Enter minutes > 0", Toast.LENGTH_SHORT).show()
+                                    return@TextButton
+                                }
+                                scope.launch {
+                                    try {
+                                        viewModel.addManualUnblockMinutes(minutes)
+                                        Toast.makeText(context, "Added $minutes minutes successfully!", Toast.LENGTH_LONG).show()
+                                    } catch (e: Exception) {
+                                        Toast.makeText(context, "Error adding minutes: ${e.message}", Toast.LENGTH_LONG).show()
+                                    }
+                                }
+                                showAddTimeDialog = false
+                                showDeveloperMode = false
+                                addMinutesText = ""
+                                developerPassword = ""
+                            } else {
+                                Toast.makeText(context, "Incorrect password!", Toast.LENGTH_SHORT).show()
                             }
+                        }) {
+                            Text("Add")
                         }
-                        showAddTimeDialog = false
-                        addMinutesText = ""
-                    }) {
-                        Text("Add")
+                    } else {
+                        // No confirm button when not in developer mode
+                        Spacer(modifier = Modifier.width(0.dp))
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = { showAddTimeDialog = false }) { Text("Cancel") }
+                    TextButton(onClick = { 
+                        showAddTimeDialog = false
+                        showDeveloperMode = false
+                        developerPassword = ""
+                    }) { 
+                        Text("Cancel") 
+                    }
                 },
                 title = { Text("Add Unblock Time") },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                        // Manual entry section
-                        Text("Manual Entry", style = MaterialTheme.typography.titleSmall)
-                        OutlinedTextField(
-                            value = addMinutesText,
-                            onValueChange = { input ->
-                                addMinutesText = input.filter { it.isDigit() }.take(3)
-                            },
-                            label = { Text("Minutes") },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                        )
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            listOf(1, 5, 10).forEach { quick ->
-                                OutlinedButton(onClick = {
-                                    val current = addMinutesText.toIntOrNull() ?: 0
-                                    addMinutesText = (current + quick).toString()
-                                }) {
-                                    Text(text = "+${quick}m")
+                        if (!showDeveloperMode) {
+                            // Manual entry section - locked
+                            Row(
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("Manual Entry", style = MaterialTheme.typography.titleSmall)
+                                IconButton(
+                                    onClick = { showDeveloperMode = true }
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Lock,
+                                        contentDescription = "Developer Mode",
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                            
+                            OutlinedTextField(
+                                value = "",
+                                onValueChange = { },
+                                label = { Text("Minutes") },
+                                singleLine = true,
+                                enabled = false,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                listOf(1, 5, 10).forEach { quick ->
+                                    OutlinedButton(
+                                        onClick = { },
+                                        enabled = false
+                                    ) {
+                                        Text(text = "+${quick}m")
+                                    }
+                                }
+                            }
+                        } else {
+                            // Developer mode - show password field and enabled controls
+                            Text("Developer Mode", style = MaterialTheme.typography.titleSmall)
+                            OutlinedTextField(
+                                value = developerPassword,
+                                onValueChange = { developerPassword = it },
+                                label = { Text("Developer Password") },
+                                singleLine = true,
+                                visualTransformation = PasswordVisualTransformation(),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
+                            )
+                            
+                            OutlinedTextField(
+                                value = addMinutesText,
+                                onValueChange = { input ->
+                                    addMinutesText = input.filter { it.isDigit() }.take(3)
+                                },
+                                label = { Text("Minutes") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                listOf(1, 5, 10).forEach { quick ->
+                                    OutlinedButton(onClick = {
+                                        val current = addMinutesText.toIntOrNull() ?: 0
+                                        addMinutesText = (current + quick).toString()
+                                    }) {
+                                        Text(text = "+${quick}m")
+                                    }
                                 }
                             }
                         }
                         
-                        // Push-up option
+                        // Push-up option - always available
                         HorizontalDivider()
                         Text("Earn Time", style = MaterialTheme.typography.titleSmall)
                         Button(
                             onClick = {
                                 showAddTimeDialog = false
+                                showDeveloperMode = false
+                                developerPassword = ""
                                 val intent = Intent(context, PushUpCounterActivity::class.java)
                                 pushUpLauncher.launch(intent)
                             },
