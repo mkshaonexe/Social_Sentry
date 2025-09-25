@@ -116,4 +116,35 @@ class SocialSentryNotificationManager(private val context: Context) {
             notify(NOTIFICATION_ID + 1, notification)
         }
     }
+
+    fun showMindfulScrollNotification() {
+        if (!hasNotificationPermission()) {
+            return
+        }
+
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+
+        val pendingIntent: PendingIntent = PendingIntent.getActivity(
+            context,
+            0,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_shield)
+            .setContentTitle("Mindful moment")
+            .setContentText("You've been scrolling for 5 minutes. Take a deep breath.")
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            .setVibrate(longArrayOf(0, 150, 100, 150))
+            .build()
+
+        with(NotificationManagerCompat.from(context)) {
+            notify(NOTIFICATION_ID + 2, notification)
+        }
+    }
 }

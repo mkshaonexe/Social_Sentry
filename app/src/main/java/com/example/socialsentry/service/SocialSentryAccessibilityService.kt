@@ -6,6 +6,7 @@ import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import com.example.socialsentry.data.datastore.SocialSentryDataStore
+import com.example.socialsentry.domain.SocialSentryNotificationManager
 import com.example.socialsentry.data.model.SocialSentrySettings
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -20,6 +21,7 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
 
     private val dataStore: SocialSentryDataStore by inject()
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private lateinit var notificationManager: SocialSentryNotificationManager
 
     @Volatile
     private var settings = SocialSentrySettings()
@@ -39,6 +41,7 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
     override fun onServiceConnected() {
         super.onServiceConnected()
         Log.d(TAG, "SocialSentry Accessibility Service connected")
+        notificationManager = SocialSentryNotificationManager(this)
         serviceScope.launch {
             dataStore.settingsFlow.collect { latestSettings ->
                 settings = latestSettings
@@ -56,7 +59,8 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
         val isRelevantEvent = when (eventType) {
             AccessibilityEvent.TYPE_VIEW_CLICKED,
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED,
-            AccessibilityEvent.TYPE_VIEW_FOCUSED -> true
+            AccessibilityEvent.TYPE_VIEW_FOCUSED,
+            AccessibilityEvent.TYPE_VIEW_SCROLLED -> true
             else -> false
         }
 
@@ -65,17 +69,22 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
         Log.v(TAG, "Processing event from $packageName, type: $eventType")
 
         val currentMinute = getCurrentMinuteOfDay()
-        
-        // If user has an active temporary unblock session, allow content and skip blocking
+
+        // Mindful scroll tracking should run regardless of unblock state
+        if (packageName == "com.instagram.android" || packageName == "com.facebook.katana") {
+            trackMindfulScroll(packageName, event)
+        }
+
+        // If user has an active temporary unblock session, skip blocking logic only
         if (settings.isTemporaryUnblockActive) {
             return
         }
-        
+
         when (packageName) {
             "com.instagram.android" -> handleInstagram(root, currentMinute)
+            "com.facebook.katana" -> handleFacebook(root, event, currentMinute)
             "com.google.android.youtube" -> handleYoutube(root, currentMinute)
             "com.zhiliaoapp.musically" -> handleTikTok(currentMinute)
-            "com.facebook.katana" -> handleFacebook(root, event, currentMinute)
         }
     }
 
@@ -272,6 +281,43 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
         
         // Fallback to back button
         performGlobalAction(GLOBAL_ACTION_BACK)
+    }
+
+    // Mindful scroll detection (Instagram/Facebook normal feed)
+    private var mindfulScrollStartMs: Long? = null
+    private var mindfulLastPackage: String? = null
+    private var mindfulNotificationShownForSession = false
+
+    private fun trackMindfulScroll(packageName: String, event: AccessibilityEvent?) {
+        // Only consider scroll events
+        if (event?.eventType != AccessibilityEvent.TYPE_VIEW_SCROLLED) {
+            // Reset if user switched app or view state
+            if (mindfulLastPackage != packageName) {
+                mindfulScrollStartMs = null
+                mindfulNotificationShownForSession = false
+            }
+            mindfulLastPackage = packageName
+            return
+        }
+
+        val now = System.currentTimeMillis()
+        if (mindfulScrollStartMs == null || mindfulLastPackage != packageName) {
+            mindfulScrollStartMs = now
+            mindfulNotificationShownForSession = false
+            mindfulLastPackage = packageName
+            return
+        }
+
+        // 5 minutes threshold (300_000 ms)
+        val elapsed = now - (mindfulScrollStartMs ?: now)
+        val thresholdMs = 300_000L
+
+        if (!mindfulNotificationShownForSession && elapsed >= thresholdMs) {
+            // Only notify if reels/shorts are not active blocking redirections
+            // and regardless of blocking on/off state — this is a gentle reminder
+            notificationManager.showMindfulScrollNotification()
+            mindfulNotificationShownForSession = true
+        }
     }
 
     // Utility Methods

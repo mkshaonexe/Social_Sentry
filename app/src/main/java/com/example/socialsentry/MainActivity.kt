@@ -74,8 +74,7 @@ class MainActivity : ComponentActivity() {
                     )
                 } else {
                     BlockScrollScreen(
-                        onNavigateToSettings = { showSettings = true },
-                        onRequestNotificationPermission = { requestNotificationPermission() }
+                        onNavigateToSettings = { showSettings = true }
                     )
                 }
             }
