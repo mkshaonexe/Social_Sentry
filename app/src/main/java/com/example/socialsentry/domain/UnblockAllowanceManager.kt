@@ -75,6 +75,10 @@ class UnblockAllowanceManager(
 			)
 			dataStore.updateSettings(updated)
 			workManager.cancelUniqueWork(END_UNBLOCK_WORK_NAME)
+			
+			// Show notification that time is up and reels are blocked again
+			val notificationManager = SocialSentryNotificationManager(context)
+			notificationManager.showTimeUpNotification()
 		}
 	}
 
@@ -193,6 +197,11 @@ class EndUnblockWorker(
 		val manager = UnblockAllowanceManager(applicationContext, dataStore)
 		// When this fires, session should be ended and allowance decremented to zero
 		manager.endTemporaryUnblockAndDecrementAllowance()
+		
+		// Show notification that time is up
+		val notificationManager = SocialSentryNotificationManager(applicationContext)
+		notificationManager.showTimeUpNotification()
+		
 		return Result.success()
 	}
 }

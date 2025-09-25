@@ -25,10 +25,11 @@ data class SocialSentrySettings(
     val instagram: SocialApp = SocialApp(
         name = "Instagram",
         packageName = "com.instagram.android",
+        isBlocked = true,
         features = listOf(
             BlockableFeature(
                 name = "Reels",
-                isEnabled = false
+                isEnabled = true
             ),
             BlockableFeature(
                 name = "Stories",
@@ -43,25 +44,28 @@ data class SocialSentrySettings(
     val youtube: SocialApp = SocialApp(
         name = "YouTube",
         packageName = "com.google.android.youtube",
+        isBlocked = true,
         features = listOf(
             BlockableFeature(
                 name = "Shorts",
-                isEnabled = false
+                isEnabled = true
             )
         )
     ),
     val tiktok: SocialApp = SocialApp(
         name = "TikTok",
         packageName = "com.zhiliaoapp.musically",
+        isBlocked = true,
         features = emptyList() // Block entire app
     ),
     val facebook: SocialApp = SocialApp(
         name = "Facebook",
         packageName = "com.facebook.katana",
+        isBlocked = true,
         features = listOf(
             BlockableFeature(
                 name = "Reels",
-                isEnabled = false
+                isEnabled = true
             ),
             BlockableFeature(
                 name = "Stories",
