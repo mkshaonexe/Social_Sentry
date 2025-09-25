@@ -77,6 +77,12 @@ data class SocialSentrySettings(
             )
         )
     ),
+    val threads: SocialApp = SocialApp(
+        name = "Threads",
+        packageName = "com.instagram.barcelona",
+        isBlocked = true,
+        features = emptyList()
+    ),
     // Daily temporary unblock configuration (minutes)
     val dailyTemporaryUnblockMinutes: Int = 10,
     // Remaining allowance for the current day in milliseconds
@@ -88,6 +94,8 @@ data class SocialSentrySettings(
     // Epoch millis when the current temporary unblock session started (if active)
     val temporaryUnblockSessionStartEpochMs: Long? = null,
     // ISO-8601 local date (yyyy-MM-dd) when the allowance was last reset
-    val lastAllowanceResetLocalDate: String? = null
+    val lastAllowanceResetLocalDate: String? = null,
+    // Reminder time in minutes for app usage
+    val usageReminderMinutes: Int = 5
 )
 

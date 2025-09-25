@@ -49,6 +49,18 @@ class SocialSentryViewModel(
         }
     }
 
+    fun updateThreads(app: SocialApp) {
+        viewModelScope.launch {
+            dataStore.updateThreads(app)
+        }
+    }
+
+    fun updateUsageReminderTime(minutes: Int) {
+        viewModelScope.launch {
+            dataStore.updateUsageReminderTime(minutes)
+        }
+    }
+
     fun toggleAppBlocking(appName: String, isBlocked: Boolean) {
         val currentSettings = settings.value
         viewModelScope.launch {
@@ -57,6 +69,7 @@ class SocialSentryViewModel(
                 "YouTube" -> updateYoutube(currentSettings.youtube.copy(isBlocked = isBlocked))
                 "TikTok" -> updateTiktok(currentSettings.tiktok.copy(isBlocked = isBlocked))
                 "Facebook" -> updateFacebook(currentSettings.facebook.copy(isBlocked = isBlocked))
+                "Threads" -> updateThreads(currentSettings.threads.copy(isBlocked = isBlocked))
             }
         }
     }
@@ -118,6 +131,14 @@ class SocialSentryViewModel(
                 "Facebook" -> {
                     updateFacebook(
                         currentSettings.facebook.copy(
+                            blockTimeStart = startMinute,
+                            blockTimeEnd = endMinute
+                        )
+                    )
+                }
+                "Threads" -> {
+                    updateThreads(
+                        currentSettings.threads.copy(
                             blockTimeStart = startMinute,
                             blockTimeEnd = endMinute
                         )

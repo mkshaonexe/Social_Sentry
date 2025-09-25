@@ -19,6 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.core.app.ActivityCompat
 import androidx.core.view.WindowCompat
 import com.example.socialsentry.domain.SocialSentryNotificationManager
+import com.example.socialsentry.presentation.ui.screen.AdminScreen
 import com.example.socialsentry.presentation.ui.screen.BlockScrollScreen
 import com.example.socialsentry.presentation.ui.screen.SettingsScreen
 import com.example.socialsentry.ui.theme.SocialSentryTheme
@@ -60,17 +61,27 @@ class MainActivity : ComponentActivity() {
         setContent {
             SocialSentryTheme {
                 var showSettings by remember { mutableStateOf(false) }
-                
+                var showAdminPanel by remember { mutableStateOf(false) }
+
                 // Check and request notification permission when app opens
                 LaunchedEffect(Unit) {
                     if (!notificationManager.hasNotificationPermission()) {
                         requestNotificationPermission()
                     }
                 }
-                
-                if (showSettings) {
+
+                if (showAdminPanel) {
+                    AdminScreen(
+                        onNavigateBack = { showAdminPanel = false }
+                    )
+                }
+                else if (showSettings) {
                     SettingsScreen(
-                        onNavigateBack = { showSettings = false }
+                        onNavigateBack = { showSettings = false },
+                        onNavigateToAdmin = {
+                            showSettings = false
+                            showAdminPanel = true
+                        }
                     )
                 } else {
                     BlockScrollScreen(

@@ -31,14 +31,21 @@ import kotlinx.coroutines.launch
 import android.app.Activity
 import android.content.Intent
 import com.example.socialsentry.presentation.ui.pushup.PushUpCounterActivity
+import androidx.compose.ui.res.painterResource
+import com.example.socialsentry.R
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     viewModel: SocialSentryViewModel = koinViewModel(),
-    onNavigateBack: () -> Unit = {}
+    onNavigateBack: () -> Unit = {},
+    onNavigateToAdmin: () -> Unit = {}
 ) {
     val context = LocalContext.current
+    var showDialog by remember { mutableStateOf(false) }
+    var password by remember { mutableStateOf("") }
+
     val lifecycleOwner = LocalLifecycleOwner.current
     val lifecycleState by lifecycleOwner.lifecycle.currentStateFlow.collectAsState()
     
@@ -59,7 +66,8 @@ fun SettingsScreen(
         settings.youtube,
         settings.facebook,
         settings.instagram,
-        settings.tiktok
+        settings.tiktok,
+        settings.threads
     )
     
     Box(
@@ -80,6 +88,51 @@ fun SettingsScreen(
                 contentDescription = "Back",
                 tint = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.size(28.dp)
+            )
+        }
+        IconButton(
+            onClick = { showDialog = true },
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(16.dp)
+        ) {
+            Icon(
+                painter = painterResource(id = R.drawable.ic_admin_panel_settings),
+                contentDescription = "Admin",
+                tint = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.size(28.dp)
+            )
+        }
+        if (showDialog) {
+            AlertDialog(
+                onDismissRequest = { showDialog = false },
+                title = { Text("Enter Admin Password") },
+                text = {
+                    TextField(
+                        value = password,
+                        onValueChange = { password = it },
+                        label = { Text("Password") },
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            if (password == "mkshaon31") {
+                                onNavigateToAdmin()
+                            }
+                            showDialog = false
+                        }
+                    ) {
+                        Text("Enter")
+                    }
+                },
+                dismissButton = {
+                    Button(onClick = { showDialog = false }) {
+                        Text("Cancel")
+                    }
+                }
             )
         }
         LazyColumn(

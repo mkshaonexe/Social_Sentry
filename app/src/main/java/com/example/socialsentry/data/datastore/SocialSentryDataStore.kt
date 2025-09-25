@@ -43,7 +43,19 @@ class SocialSentryDataStore(private val context: Context) {
             current.copy(facebook = app)
         }
     }
-    
+
+    suspend fun updateThreads(app: SocialApp) {
+        context.socialSentrySettingsStore.updateData { current ->
+            current.copy(threads = app)
+        }
+    }
+
+    suspend fun updateUsageReminderTime(minutes: Int) {
+        context.socialSentrySettingsStore.updateData { current ->
+            current.copy(usageReminderMinutes = minutes)
+        }
+    }
+
     suspend fun getCurrentSettings(): SocialSentrySettings {
         return settingsFlow.first()
     }

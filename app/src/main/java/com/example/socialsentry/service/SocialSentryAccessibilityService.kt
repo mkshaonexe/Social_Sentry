@@ -22,6 +22,7 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
     private val dataStore: SocialSentryDataStore by inject()
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private lateinit var notificationManager: SocialSentryNotificationManager
+    private val usageTrackers = mutableMapOf<String, UsageTracker>()
 
     @Volatile
     private var settings = SocialSentrySettings()
@@ -45,9 +46,16 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
         serviceScope.launch {
             dataStore.settingsFlow.collect { latestSettings ->
                 settings = latestSettings
+                initializeTrackers()
                 Log.d(TAG, "Settings updated: ${settings}")
             }
         }
+    }
+
+    private fun initializeTrackers() {
+        usageTrackers["com.instagram.android"] = UsageTracker(notificationManager, "com.instagram.android", settings.usageReminderMinutes)
+        usageTrackers["com.facebook.katana"] = UsageTracker(notificationManager, "com.facebook.katana", settings.usageReminderMinutes)
+        usageTrackers["com.instagram.barcelona"] = UsageTracker(notificationManager, "com.instagram.barcelona", settings.usageReminderMinutes)
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -71,7 +79,7 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
         val currentMinute = getCurrentMinuteOfDay()
 
         // Mindful scroll tracking should run regardless of unblock state
-        if (packageName == "com.instagram.android" || packageName == "com.facebook.katana") {
+        if (packageName == "com.instagram.android" || packageName == "com.facebook.katana" || packageName == "com.instagram.barcelona") {
             trackMindfulScroll(packageName, event)
         }
 
@@ -85,6 +93,22 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
             "com.facebook.katana" -> handleFacebook(root, event, currentMinute)
             "com.google.android.youtube" -> handleYoutube(root, currentMinute)
             "com.zhiliaoapp.musically" -> handleTikTok(currentMinute)
+            "com.instagram.barcelona" -> handleThreads(currentMinute)
+        }
+    }
+
+    private fun handleThreads(currentMinute: Int) {
+        val app = settings.threads
+        if (!app.isBlocked || !isWithinTimeRange(app.blockTimeStart, app.blockTimeEnd, currentMinute)) {
+            return
+        }
+        blockThreads()
+    }
+
+    private fun blockThreads() {
+        Log.d(TAG, "Threads blocked - going to home screen")
+        exitTheDoom(null) {
+            performGlobalAction(GLOBAL_ACTION_HOME)
         }
     }
 
@@ -289,34 +313,20 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
     private var mindfulNotificationShownForSession = false
 
     private fun trackMindfulScroll(packageName: String, event: AccessibilityEvent?) {
-        // Only consider scroll events
-        if (event?.eventType != AccessibilityEvent.TYPE_VIEW_SCROLLED) {
-            // Reset if user switched app or view state
-            if (mindfulLastPackage != packageName) {
-                mindfulScrollStartMs = null
-                mindfulNotificationShownForSession = false
+        // Only consider scroll events for Facebook
+        if (packageName == "com.facebook.katana" && event?.eventType != AccessibilityEvent.TYPE_VIEW_SCROLLED) {
+            usageTrackers[packageName]?.stop()
+            return
+        }
+
+        if (event?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            usageTrackers.forEach { (pkg, tracker) ->
+                if (pkg == packageName) {
+                    tracker.start()
+                } else {
+                    tracker.stop()
+                }
             }
-            mindfulLastPackage = packageName
-            return
-        }
-
-        val now = System.currentTimeMillis()
-        if (mindfulScrollStartMs == null || mindfulLastPackage != packageName) {
-            mindfulScrollStartMs = now
-            mindfulNotificationShownForSession = false
-            mindfulLastPackage = packageName
-            return
-        }
-
-        // 5 minutes threshold (300_000 ms)
-        val elapsed = now - (mindfulScrollStartMs ?: now)
-        val thresholdMs = 300_000L
-
-        if (!mindfulNotificationShownForSession && elapsed >= thresholdMs) {
-            // Only notify if reels/shorts are not active blocking redirections
-            // and regardless of blocking on/off state — this is a gentle reminder
-            notificationManager.showMindfulScrollNotification()
-            mindfulNotificationShownForSession = true
         }
     }
 
