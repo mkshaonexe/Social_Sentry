@@ -8,14 +8,21 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.sp
 import androidx.core.app.ActivityCompat
 import androidx.core.view.WindowCompat
 import com.example.socialsentry.domain.SocialSentryNotificationManager
@@ -23,7 +30,7 @@ import com.example.socialsentry.presentation.ui.screen.BlockScrollScreen
 import com.example.socialsentry.presentation.ui.screen.SettingsScreen
 import com.example.socialsentry.ui.theme.SocialSentryTheme
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 class MainActivity : ComponentActivity() {
     
     private lateinit var notificationManager: SocialSentryNotificationManager
@@ -73,9 +80,20 @@ class MainActivity : ComponentActivity() {
                         onNavigateBack = { showSettings = false }
                     )
                 } else {
-                    BlockScrollScreen(
-                        onNavigateToSettings = { showSettings = true }
-                    )
+                    val pagerState = rememberPagerState(initialPage = 1, pageCount = { 3 })
+                    HorizontalPager(
+                        state = pagerState,
+                        modifier = Modifier.fillMaxSize()
+                    ) { page ->
+                        when (page) {
+                            0 -> HelloWorldPage(text = "Hello World 1")
+                            1 -> BlockScrollScreen(
+                                onNavigateToSettings = { showSettings = true },
+                                onRequestNotificationPermission = { requestNotificationPermission() }
+                            )
+                            2 -> HelloWorldPage(text = "Hello World 2")
+                        }
+                    }
                 }
             }
         }
@@ -90,5 +108,21 @@ class MainActivity : ComponentActivity() {
                 requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
             }
         }
+    }
+}
+
+@Composable
+private fun HelloWorldPage(text: String) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .systemBarsPadding(),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.headlineMedium,
+            textAlign = TextAlign.Center
+        )
     }
 }
