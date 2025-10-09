@@ -365,7 +365,10 @@ fun BlockScrollScreen(
                         showDeveloperMode = false
                         developerPassword = ""
                     }) { 
-                        Text("Cancel") 
+                        Text(
+                            text = "Cancel",
+                            color = Color(0xFF9C9C9C) // Soft gray instead of bright pink
+                        ) 
                     }
                 },
                 title = { Text("Add Unblock Time") },
@@ -385,7 +388,7 @@ fun BlockScrollScreen(
                                     Icon(
                                         imageVector = Icons.Rounded.Lock,
                                         contentDescription = "Developer Mode",
-                                        tint = MaterialTheme.colorScheme.primary
+                                        tint = Color(0xFF9C6ADE) // Soft purple instead of bright pink
                                     )
                                 }
                             }
@@ -452,9 +455,17 @@ fun BlockScrollScreen(
                                 val intent = Intent(context, PushUpCounterActivity::class.java)
                                 pushUpLauncher.launch(intent)
                             },
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF7B68EE), // Soft purple-blue instead of bright pink
+                                contentColor = White
+                            ),
+                            shape = RoundedCornerShape(12.dp)
                         ) {
-                            Text("🏋️ Do Push-ups (1 push-up = 1 minute)")
+                            Text(
+                                text = "🏋️ Do Push-ups (1 push-up = 1 minute)",
+                                modifier = Modifier.padding(vertical = 4.dp)
+                            )
                         }
                     }
                 }
