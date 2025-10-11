@@ -302,26 +302,15 @@ fun StatisticsSection() {
         
         Spacer(modifier = Modifier.height(24.dp))
         
-        // Powered by ChartBase
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center,
+        // Creator credit
+        Text(
+            text = "yt@mkshaon7",
+            fontSize = 12.sp,
+            color = TextGray,
+            fontWeight = FontWeight.Medium,
+            textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth()
-        ) {
-            Icon(
-                imageVector = Icons.Default.Star,
-                contentDescription = null,
-                tint = Color(0xFFFFD700),
-                modifier = Modifier.size(16.dp)
-            )
-            Spacer(modifier = Modifier.width(4.dp))
-            Text(
-                text = "Powered by ChartBase",
-                fontSize = 12.sp,
-                color = TextGray,
-                fontWeight = FontWeight.Medium
-            )
-        }
+        )
     }
 }
 
