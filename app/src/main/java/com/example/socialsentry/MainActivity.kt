@@ -27,6 +27,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.view.WindowCompat
 import com.example.socialsentry.domain.SocialSentryNotificationManager
 import com.example.socialsentry.presentation.ui.screen.BlockScrollScreen
+import com.example.socialsentry.presentation.ui.screen.GameDashboardScreen
 import com.example.socialsentry.presentation.ui.screen.SettingsScreen
 import com.example.socialsentry.ui.theme.SocialSentryTheme
 
@@ -86,7 +87,7 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier.fillMaxSize()
                     ) { page ->
                         when (page) {
-                            0 -> HelloWorldPage(text = "Hello World 1")
+                            0 -> GameDashboardScreen()
                             1 -> BlockScrollScreen(
                                 onNavigateToSettings = { showSettings = true },
                                 onRequestNotificationPermission = { requestNotificationPermission() }
