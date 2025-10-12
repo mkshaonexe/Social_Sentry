@@ -27,6 +27,7 @@ import androidx.compose.material.icons.rounded.Warning
 import com.example.socialsentry.presentation.ui.components.AnimatedToggleSwitch
 import com.example.socialsentry.presentation.viewmodel.SocialSentryViewModel
 import com.example.socialsentry.ui.theme.BrightPink
+import com.example.socialsentry.ui.theme.BrightGreen
 import com.example.socialsentry.ui.theme.DarkGray
 import com.example.socialsentry.ui.theme.White
 import com.example.socialsentry.ui.theme.TextGray
@@ -805,7 +806,14 @@ private fun buildAnimatedText(text: String, isEnabled: Boolean): @Composable () 
             words = words.mapIndexed { index, word ->
                 AnimatedWord(
                     text = word,
-                    color = if (index == 0) BrightPink else White,
+                    color = when {
+                        // When enabled (ON): "Social" = White, "Sentry" = Green
+                        isEnabled && index == 0 -> White
+                        isEnabled && index == 1 -> BrightGreen
+                        // When disabled (OFF): "Social" = Pink/Red, "Sentry" = White
+                        !isEnabled && index == 0 -> BrightPink
+                        else -> White
+                    },
                     isEnabled = isEnabled
                 )
             }
