@@ -23,15 +23,22 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.Warning
 import com.example.socialsentry.presentation.ui.components.AnimatedToggleSwitch
 import com.example.socialsentry.presentation.viewmodel.SocialSentryViewModel
 import com.example.socialsentry.ui.theme.BrightPink
 import com.example.socialsentry.ui.theme.DarkGray
 import com.example.socialsentry.ui.theme.White
+import com.example.socialsentry.ui.theme.TextGray
 import org.koin.androidx.compose.koinViewModel
 import androidx.compose.ui.platform.LocalContext
 import android.widget.Toast
 import java.util.concurrent.TimeUnit
+import android.content.Context
+import android.view.accessibility.AccessibilityManager
+import android.view.accessibility.AccessibilityEvent
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
 import kotlinx.coroutines.delay
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
@@ -58,12 +65,28 @@ fun BlockScrollScreen(
         android.util.Log.d("BlockScrollScreen", "Settings updated - remainingMs: ${settings.remainingTemporaryUnblockMs}, isActive: ${settings.isTemporaryUnblockActive}")
     }
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val lifecycleState by lifecycleOwner.lifecycle.currentStateFlow.collectAsState()
+    
+    var isAccessibilityEnabled by remember { mutableStateOf(false) }
+    var showAccessibilityWarningDialog by remember { mutableStateOf(false) }
+    var showMoreInfo by remember { mutableStateOf(false) }
     var nowTick by remember { mutableStateOf(System.currentTimeMillis()) }
     var showAddTimeDialog by remember { mutableStateOf(false) }
     var addMinutesText by remember { mutableStateOf("") }
     var showDeveloperMode by remember { mutableStateOf(false) }
     var developerPassword by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
+    
+    // Check accessibility service status
+    LaunchedEffect(lifecycleState) {
+        when (lifecycleState) {
+            Lifecycle.State.RESUMED -> {
+                isAccessibilityEnabled = context.isAccessibilityServiceEnabled()
+            }
+            else -> {}
+        }
+    }
     
     // Push-up activity launcher
     val pushUpLauncher = rememberLauncherForActivityResult(
@@ -133,6 +156,24 @@ fun BlockScrollScreen(
                 modifier = Modifier.size(28.dp)
             )
         }
+        
+        // Warning icon when accessibility is not enabled
+        if (!isAccessibilityEnabled) {
+            IconButton(
+                onClick = { showAccessibilityWarningDialog = true },
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(16.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Warning,
+                    contentDescription = "Warning - Accessibility not enabled",
+                    tint = Color(0xFFFF9800), // Orange warning color
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+        }
+        
         // Remaining time and Add button in top right
         Row(
             modifier = Modifier
@@ -471,6 +512,177 @@ fun BlockScrollScreen(
                 }
             )
         }
+        
+        // Accessibility Warning Dialog
+        if (showAccessibilityWarningDialog) {
+            AlertDialog(
+                onDismissRequest = { 
+                    showAccessibilityWarningDialog = false
+                    showMoreInfo = false
+                },
+                confirmButton = {
+                    TextButton(onClick = { 
+                        showAccessibilityWarningDialog = false
+                        showMoreInfo = false
+                        onNavigateToSettings()
+                    }) {
+                        Text("Go to Settings")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { 
+                        showAccessibilityWarningDialog = false
+                        showMoreInfo = false
+                    }) {
+                        Text("Dismiss")
+                    }
+                },
+                icon = {
+                    Icon(
+                        imageVector = Icons.Rounded.Warning,
+                        contentDescription = "Warning",
+                        tint = Color(0xFFFF9800),
+                        modifier = Modifier.size(48.dp)
+                    )
+                },
+                title = { 
+                    Text(
+                        text = "Setup Not Complete",
+                        fontWeight = FontWeight.Bold
+                    ) 
+                },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = "The app is not set up correctly. Accessibility service permission is required for the app to function properly.",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Without this permission, the app cannot:",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = "• Block social media scrolling",
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(start = 8.dp)
+                        )
+                        Text(
+                            text = "• Monitor app usage",
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(start = 8.dp)
+                        )
+                        Text(
+                            text = "• Enforce time restrictions",
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(start = 8.dp)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Please enable the accessibility service in Settings to use this app.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium,
+                            color = BrightPink
+                        )
+                        
+                        Spacer(modifier = Modifier.height(12.dp))
+                        
+                        // See more section
+                        TextButton(
+                            onClick = { showMoreInfo = !showMoreInfo },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = if (showMoreInfo) "See less ▲" else "See more ▼",
+                                color = Color(0xFF00BCD4),
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                        
+                        AnimatedVisibility(visible = showMoreInfo) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color(0xFF1E1E1E))
+                                    .padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = "📺 Tutorial & Support",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF00BCD4)
+                                )
+                                
+                                HorizontalDivider(
+                                    color = Color(0xFF333333),
+                                    modifier = Modifier.padding(vertical = 4.dp)
+                                )
+                                
+                                // YouTube
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = "▶️ YouTube:",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = White,
+                                        modifier = Modifier.width(80.dp)
+                                    )
+                                    Text(
+                                        text = "@mkshaon7",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Color(0xFFFF5252)
+                                    )
+                                }
+                                
+                                // Email
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = "📧 Email:",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = White,
+                                        modifier = Modifier.width(80.dp)
+                                    )
+                                    Text(
+                                        text = "mkshaon2024@gmail.com",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Color(0xFF4CAF50)
+                                    )
+                                }
+                                
+                                // Website
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = "🌐 Website:",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = White,
+                                        modifier = Modifier.width(80.dp)
+                                    )
+                                    Text(
+                                        text = "mkshaon.com/reels_blocker",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Color(0xFF2196F3)
+                                    )
+                                }
+                                
+                                Spacer(modifier = Modifier.height(4.dp))
+                                
+                                Text(
+                                    text = "For detailed setup tutorial, check out the resources above!",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = TextGray,
+                                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                                )
+                            }
+                        }
+                    }
+                }
+            )
+        }
     }
 }
 
@@ -555,3 +767,18 @@ private data class AnimatedWord(
     val color: Color,
     val isEnabled: Boolean
 )
+
+private fun Context.isAccessibilityServiceEnabled(): Boolean {
+    val accessibilityManager = getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager
+    val enabledServices = accessibilityManager.getEnabledAccessibilityServiceList(
+        AccessibilityEvent.TYPE_VIEW_CLICKED
+    )
+    
+    val targetServiceId = "com.example.socialsentry/.service.SocialSentryAccessibilityService"
+    val isEnabled = enabledServices.any { serviceInfo ->
+        serviceInfo.id == targetServiceId
+    }
+    
+    android.util.Log.d("BlockScrollScreen", "Accessibility service enabled: $isEnabled")
+    return isEnabled
+}
