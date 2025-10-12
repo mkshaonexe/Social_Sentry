@@ -466,40 +466,31 @@ fun StatisticsSection() {
             .shadow(6.dp, RoundedCornerShape(16.dp))
             .clip(RoundedCornerShape(16.dp))
             .background(Color(0xFF1A1A1A))
-            .padding(32.dp),
+            .padding(40.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Radar Chart
+        // Radar Chart - Larger and more spacious
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(1.2f)
-                .padding(16.dp),
+                .aspectRatio(1f)
+                .padding(24.dp),
             contentAlignment = Alignment.Center
         ) {
             ImprovedRadarChart()
         }
         
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(24.dp))
         
-        // Powered by credit
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
-        ) {
-            Text(
-                text = "⚡",
-                fontSize = 12.sp,
-                color = Color(0xFFFF9800)
-            )
-            Spacer(modifier = Modifier.width(4.dp))
-            Text(
-                text = "Powered by ChartBase",
-                fontSize = 11.sp,
-                color = TextGray.copy(alpha = 0.7f),
-                fontWeight = FontWeight.Normal
-            )
-        }
+        // Creator credit
+        Text(
+            text = "yt@mkshaon7",
+            fontSize = 11.sp,
+            color = TextGray.copy(alpha = 0.7f),
+            fontWeight = FontWeight.Medium,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }
 
@@ -511,7 +502,7 @@ fun QuickStatsSection() {
             .shadow(6.dp, RoundedCornerShape(16.dp))
             .clip(RoundedCornerShape(16.dp))
             .background(Color(0xFF1A1A1A))
-            .padding(20.dp)
+            .padding(24.dp)
     ) {
         // Quote
         Text(
@@ -523,38 +514,30 @@ fun QuickStatsSection() {
             modifier = Modifier.fillMaxWidth()
         )
         
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(32.dp))
         
-        // Mini Radar Chart
+        // Radar Chart - Bigger and more spacious
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(200.dp),
+                .aspectRatio(1f)
+                .padding(horizontal = 8.dp),
             contentAlignment = Alignment.Center
         ) {
             ImprovedRadarChart()
         }
         
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(24.dp))
         
-        // Powered by
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "⚡",
-                fontSize = 10.sp,
-                color = Color(0xFFFF9800)
-            )
-            Spacer(modifier = Modifier.width(4.dp))
-            Text(
-                text = "Powered by ChartBase",
-                fontSize = 10.sp,
-                color = TextGray.copy(alpha = 0.6f)
-            )
-        }
+        // Creator credit
+        Text(
+            text = "yt@mkshaon7",
+            fontSize = 11.sp,
+            color = TextGray.copy(alpha = 0.6f),
+            fontWeight = FontWeight.Medium,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
+        )
         
         Spacer(modifier = Modifier.height(20.dp))
         
@@ -773,14 +756,15 @@ fun ImprovedRadarChart() {
         Canvas(modifier = Modifier.fillMaxSize()) {
             val centerX = size.width / 2
             val centerY = size.height / 2
-            val radius = size.minDimension / 2.5f
+            // Make the radar chart bigger - use more of the available space
+            val radius = size.minDimension / 2.8f
             
             // Draw hexagon radar grid (6 points)
             val points = 6
             val angleStep = (2 * Math.PI / points).toFloat()
             val startAngle = -Math.PI.toFloat() / 2 // Start from top
             
-            // Draw concentric hexagons (grid) - 5 levels
+            // Draw concentric hexagons (grid) - 5 levels with better visibility
             for (level in 1..5) {
                 val currentRadius = radius * level / 5
                 val path = androidx.compose.ui.graphics.Path()
@@ -798,29 +782,30 @@ fun ImprovedRadarChart() {
                 }
                 path.close()
                 
+                // Make grid lines more visible
                 drawPath(
                     path = path,
-                    color = Color(0xFF00BCD4).copy(alpha = 0.15f),
-                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.5f)
+                    color = Color(0xFF00BCD4).copy(alpha = 0.2f),
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2f)
                 )
             }
             
-            // Draw axis lines from center to each point
+            // Draw axis lines from center to each point - thicker
             for (i in 0 until points) {
                 val angle = startAngle + angleStep * i
                 val x = centerX + radius * kotlin.math.cos(angle)
                 val y = centerY + radius * kotlin.math.sin(angle)
                 
                 drawLine(
-                    color = Color(0xFF00BCD4).copy(alpha = 0.2f),
+                    color = Color(0xFF00BCD4).copy(alpha = 0.25f),
                     start = androidx.compose.ui.geometry.Offset(centerX, centerY),
                     end = androidx.compose.ui.geometry.Offset(x, y),
-                    strokeWidth = 1.5f
+                    strokeWidth = 2f
                 )
             }
             
             // Draw data polygon (filled) - Sample stats values
-            val dataValues = listOf(0.85f, 0.95f, 0.78f, 0.65f, 0.72f, 0.88f) // FIT, ?, SOC, INT, DIS, FOC, FIN
+            val dataValues = listOf(0.85f, 0.95f, 0.78f, 0.65f, 0.72f, 0.88f)
             val dataPath = androidx.compose.ui.graphics.Path()
             
             for (i in dataValues.indices) {
@@ -837,101 +822,108 @@ fun ImprovedRadarChart() {
             }
             dataPath.close()
             
-            // Fill with purple/pink gradient effect
+            // Fill with purple gradient effect - more visible
             drawPath(
                 path = dataPath,
-                color = Color(0xFF9C27B0).copy(alpha = 0.5f)
+                color = Color(0xFF9C27B0).copy(alpha = 0.6f)
             )
             
-            // Stroke outline
+            // Stroke outline - thicker
             drawPath(
                 path = dataPath,
-                color = Color(0xFF9C27B0).copy(alpha = 0.8f),
-                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.5f)
+                color = Color(0xFF9C27B0).copy(alpha = 0.9f),
+                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 3f)
             )
             
-            // Draw data points as circles
+            // Draw data points as circles - bigger
             for (i in dataValues.indices) {
                 val angle = startAngle + angleStep * i
                 val currentRadius = radius * dataValues[i]
                 val x = centerX + currentRadius * kotlin.math.cos(angle)
                 val y = centerY + currentRadius * kotlin.math.sin(angle)
                 
+                // Outer glow circle
+                drawCircle(
+                    color = Color(0xFF9C27B0).copy(alpha = 0.3f),
+                    radius = 8f,
+                    center = androidx.compose.ui.geometry.Offset(x, y)
+                )
+                // Inner solid circle
                 drawCircle(
                     color = Color(0xFF9C27B0),
-                    radius = 4f,
+                    radius = 5f,
                     center = androidx.compose.ui.geometry.Offset(x, y)
                 )
             }
         }
         
-        // Labels positioned around the hexagon
+        // Labels positioned around the hexagon - better spacing
         val labels = listOf("FIT", "SOC", "INT", "DIS", "FOC", "FIN")
         Box(modifier = Modifier.fillMaxSize()) {
             // Top label (FIT)
             Text(
                 text = labels[0],
-                fontSize = 11.sp,
+                fontSize = 12.sp,
                 color = TextGray,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier
                     .align(Alignment.TopCenter)
-                    .padding(top = 4.dp)
+                    .padding(top = 0.dp)
             )
             
             // Top-right label (SOC)
             Text(
                 text = labels[1],
-                fontSize = 11.sp,
+                fontSize = 12.sp,
                 color = TextGray,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(end = 20.dp, top = 40.dp)
+                    .padding(end = 12.dp, top = 32.dp)
             )
             
             // Bottom-right label (INT)
             Text(
                 text = labels[2],
-                fontSize = 11.sp,
+                fontSize = 12.sp,
                 color = TextGray,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .padding(end = 8.dp, bottom = 40.dp)
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 12.dp, bottom = 32.dp)
             )
             
             // Bottom label (DIS)
             Text(
                 text = labels[3],
-                fontSize = 11.sp,
+                fontSize = 12.sp,
                 color = TextGray,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = 4.dp)
+                    .padding(bottom = 0.dp)
             )
             
             // Bottom-left label (FOC)
             Text(
                 text = labels[4],
-                fontSize = 11.sp,
+                fontSize = 12.sp,
                 color = TextGray,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier
-                    .align(Alignment.CenterStart)
-                    .padding(start = 8.dp, bottom = 40.dp)
+                    .align(Alignment.BottomStart)
+                    .padding(start = 12.dp, bottom = 32.dp)
             )
             
             // Top-left label (FIN)
             Text(
                 text = labels[5],
-                fontSize = 11.sp,
+                fontSize = 12.sp,
                 color = TextGray,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier
                     .align(Alignment.TopStart)
-                    .padding(start = 20.dp, top = 40.dp)
+                    .padding(start = 12.dp, top = 32.dp)
             )
         }
     }

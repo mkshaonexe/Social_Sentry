@@ -78,7 +78,7 @@ fun AnimatedToggleSwitch(
                 center = Offset(this.size.width / 2, this.size.height / 2),
                 radius = this.size.width / 2,
                 intensity = glowIntensity,
-                color = if (isEnabled) BrightGreen else BrightPink
+                color = if (isEnabled) BrightGreen else Color(0xFF757575) // Gray instead of pink
             )
         }
         
@@ -102,8 +102,8 @@ fun AnimatedToggleSwitch(
                 .background(
                     brush = Brush.radialGradient(
                         colors = listOf(
-                            if (isEnabled) BrightGreen else BrightPink,
-                            if (isEnabled) BrightGreen.copy(alpha = 0.8f) else BrightPink.copy(alpha = 0.8f)
+                            if (isEnabled) BrightGreen else Color(0xFF757575), // Gray instead of pink
+                            if (isEnabled) BrightGreen.copy(alpha = 0.8f) else Color(0xFF757575).copy(alpha = 0.8f)
                         ),
                         radius = centerSize.value * density.density / 2
                     )
@@ -159,7 +159,7 @@ private fun DrawScope.drawAnimatedRings(
         drawDashedRing(
             center = center,
             radius = ringRadius,
-            color = if (isEnabled) BrightGreen.copy(alpha = ringAlpha) else BrightPink.copy(alpha = ringAlpha),
+            color = if (isEnabled) BrightGreen.copy(alpha = ringAlpha) else Color(0xFF757575).copy(alpha = ringAlpha), // Gray instead of pink
             strokeWidth = 4.dp.toPx(),
             dashLength = 8.dp.toPx(),
             gapLength = 4.dp.toPx(),
@@ -169,7 +169,7 @@ private fun DrawScope.drawAnimatedRings(
         // Solid ring
         if (index < 2) {
             drawCircle(
-                color = if (isEnabled) BrightGreen.copy(alpha = ringAlpha * 0.5f) else BrightPink.copy(alpha = ringAlpha * 0.5f),
+                color = if (isEnabled) BrightGreen.copy(alpha = ringAlpha * 0.5f) else Color(0xFF757575).copy(alpha = ringAlpha * 0.5f), // Gray instead of pink
                 radius = ringRadius - 8.dp.toPx(),
                 center = center,
                 style = Stroke(width = 2.dp.toPx())

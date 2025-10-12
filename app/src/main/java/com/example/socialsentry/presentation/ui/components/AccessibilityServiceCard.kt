@@ -36,9 +36,9 @@ fun AccessibilityServiceCard(
             },
         colors = CardDefaults.cardColors(
             containerColor = if (isServiceEnabled) {
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) // Pink tinted background
+                Color(0xFF1A472A) // Dark green for enabled state
             } else {
-                MaterialTheme.colorScheme.errorContainer
+                Color(0xFF4A1A1A) // Dark red for disabled state
             }
         )
     ) {
@@ -54,9 +54,9 @@ fun AccessibilityServiceCard(
                 contentDescription = null,
                 modifier = Modifier.size(32.dp),
                 tint = if (isServiceEnabled) {
-                    MaterialTheme.colorScheme.primary // Pink for enabled state
+                    Color(0xFF4CAF50) // Green for enabled state
                 } else {
-                    MaterialTheme.colorScheme.onErrorContainer
+                    Color(0xFFFF6B6B) // Red for disabled state
                 }
             )
             
@@ -68,7 +68,8 @@ fun AccessibilityServiceCard(
                 Text(
                     text = "Accessibility Service",
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
                 )
                 
                 Text(
@@ -78,14 +79,18 @@ fun AccessibilityServiceCard(
                         "Service is disabled. Tap to enable in system settings."
                     },
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                    color = Color.White.copy(alpha = 0.8f)
                 )
             }
             
             Icon(
                 imageVector = Icons.Rounded.Settings,
                 contentDescription = "Open Settings",
-                tint = MaterialTheme.colorScheme.primary // Pink to match the design
+                tint = if (isServiceEnabled) {
+                    Color(0xFF4CAF50) // Green settings icon
+                } else {
+                    Color(0xFFFF6B6B) // Red settings icon
+                }
             )
         }
         
@@ -95,14 +100,14 @@ fun AccessibilityServiceCard(
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface
+                    containerColor = Color(0xFF2A2A2A) // Dark gray for description card
                 )
             ) {
                 Text(
                     text = "Social Sentry needs accessibility permission to detect when you enter Reels, Shorts, or Stories and redirect you back to the main feed. No personal data is collected.",
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(12.dp),
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                    color = Color.White.copy(alpha = 0.9f)
                 )
             }
         }

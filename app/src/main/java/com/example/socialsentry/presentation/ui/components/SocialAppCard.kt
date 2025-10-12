@@ -65,10 +65,14 @@ fun SocialAppCard(
                 },
                 enabled = isAccessibilityEnabled,
                 colors = SwitchDefaults.colors(
-                    checkedThumbColor = MaterialTheme.colorScheme.primary,
-                    checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-                    uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    uncheckedTrackColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+                    checkedThumbColor = Color(0xFF4CAF50), // Green for enabled/blocked
+                    checkedTrackColor = Color(0xFF4CAF50).copy(alpha = 0.5f),
+                    uncheckedThumbColor = Color(0xFF9E9E9E), // Gray for disabled/unblocked
+                    uncheckedTrackColor = Color(0xFF9E9E9E).copy(alpha = 0.3f),
+                    disabledCheckedThumbColor = Color(0xFF4CAF50).copy(alpha = 0.5f),
+                    disabledCheckedTrackColor = Color(0xFF4CAF50).copy(alpha = 0.3f),
+                    disabledUncheckedThumbColor = Color(0xFF757575),
+                    disabledUncheckedTrackColor = Color(0xFF757575).copy(alpha = 0.3f)
                 )
             )
         }
