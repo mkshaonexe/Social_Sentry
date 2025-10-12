@@ -207,7 +207,7 @@ fun BlockScrollScreen(
         ) {
             // Title
             buildAnimatedText(
-                text = "BLOCK SCROLL",
+                text = "Social Sentry",
                 isEnabled = isToggleEnabled
             )()
             
