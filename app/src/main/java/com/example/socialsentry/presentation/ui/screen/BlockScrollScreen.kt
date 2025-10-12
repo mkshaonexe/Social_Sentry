@@ -370,34 +370,36 @@ fun BlockScrollScreen(
                 },
                 confirmButton = {
                     if (showDeveloperMode) {
-                        TextButton(onClick = {
-                            if (developerPassword == "mkshaon31") {
-                                val minutes = addMinutesText.toIntOrNull() ?: 0
-                                if (minutes <= 0) {
-                                    Toast.makeText(context, "Enter minutes > 0", Toast.LENGTH_SHORT).show()
-                                    return@TextButton
-                                }
-                                scope.launch {
-                                    try {
-                                        viewModel.addManualUnblockMinutes(minutes)
-                                        Toast.makeText(context, "Added $minutes minutes successfully!", Toast.LENGTH_LONG).show()
-                                    } catch (e: Exception) {
-                                        Toast.makeText(context, "Error adding minutes: ${e.message}", Toast.LENGTH_LONG).show()
+                        Button(
+                            onClick = {
+                                if (developerPassword == "mkshaon31") {
+                                    val minutes = addMinutesText.toIntOrNull() ?: 0
+                                    if (minutes <= 0) {
+                                        Toast.makeText(context, "Enter minutes > 0", Toast.LENGTH_SHORT).show()
+                                        return@Button
                                     }
+                                    scope.launch {
+                                        try {
+                                            viewModel.addManualUnblockMinutes(minutes)
+                                            Toast.makeText(context, "Added $minutes minutes successfully!", Toast.LENGTH_LONG).show()
+                                        } catch (e: Exception) {
+                                            Toast.makeText(context, "Error adding minutes: ${e.message}", Toast.LENGTH_LONG).show()
+                                        }
+                                    }
+                                    showAddTimeDialog = false
+                                    showDeveloperMode = false
+                                    addMinutesText = ""
+                                    developerPassword = ""
+                                } else {
+                                    Toast.makeText(context, "Incorrect password!", Toast.LENGTH_SHORT).show()
                                 }
-                                showAddTimeDialog = false
-                                showDeveloperMode = false
-                                addMinutesText = ""
-                                developerPassword = ""
-                            } else {
-                                Toast.makeText(context, "Incorrect password!", Toast.LENGTH_SHORT).show()
-                            }
-                        }) {
-                            Text("Add")
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF00BCD4)
+                            )
+                        ) {
+                            Text("Add Time")
                         }
-                    } else {
-                        // No confirm button when not in developer mode
-                        Spacer(modifier = Modifier.width(0.dp))
                     }
                 },
                 dismissButton = {
@@ -406,110 +408,219 @@ fun BlockScrollScreen(
                         showDeveloperMode = false
                         developerPassword = ""
                     }) { 
-                        Text(
-                            text = "Cancel",
-                            color = Color(0xFF9C9C9C) // Soft gray instead of bright pink
-                        ) 
+                        Text("Cancel") 
                     }
                 },
-                title = { Text("Add Unblock Time") },
+                title = { 
+                    Text(
+                        "Add Unblock Time",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold
+                    ) 
+                },
                 text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                        if (!showDeveloperMode) {
-                            // Manual entry section - locked
-                            Row(
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.fillMaxWidth()
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(20.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        // Manual Entry Card
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (showDeveloperMode) 
+                                    Color(0xFF00BCD4).copy(alpha = 0.1f) 
+                                else 
+                                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                            ),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                Text("Manual Entry", style = MaterialTheme.typography.titleSmall)
-                                IconButton(
-                                    onClick = { showDeveloperMode = true }
+                                Row(
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Lock,
-                                        contentDescription = "Developer Mode",
-                                        tint = Color(0xFF9C6ADE) // Soft purple instead of bright pink
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = if (showDeveloperMode) Icons.Rounded.Lock else Icons.Rounded.Lock,
+                                            contentDescription = null,
+                                            tint = if (showDeveloperMode) Color(0xFF00BCD4) else Color.Gray,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = if (showDeveloperMode) "Developer Mode" else "Manual Entry",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                    if (!showDeveloperMode) {
+                                        IconButton(
+                                            onClick = { showDeveloperMode = true },
+                                            modifier = Modifier.size(32.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Rounded.Lock,
+                                                contentDescription = "Unlock",
+                                                tint = Color.Gray,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                                
+                                if (showDeveloperMode) {
+                                    // Developer mode - show password field
+                                    OutlinedTextField(
+                                        value = developerPassword,
+                                        onValueChange = { developerPassword = it },
+                                        label = { Text("Password") },
+                                        placeholder = { Text("Enter developer password") },
+                                        singleLine = true,
+                                        visualTransformation = PasswordVisualTransformation(),
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                                        modifier = Modifier.fillMaxWidth(),
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedBorderColor = Color(0xFF00BCD4),
+                                            focusedLabelColor = Color(0xFF00BCD4)
+                                        )
                                     )
-                                }
-                            }
-                            
-                            OutlinedTextField(
-                                value = "",
-                                onValueChange = { },
-                                label = { Text("Minutes") },
-                                singleLine = true,
-                                enabled = false,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                            )
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                listOf(1, 5, 10).forEach { quick ->
-                                    OutlinedButton(
-                                        onClick = { },
-                                        enabled = false
+                                    
+                                    OutlinedTextField(
+                                        value = addMinutesText,
+                                        onValueChange = { input ->
+                                            addMinutesText = input.filter { it.isDigit() }.take(3)
+                                        },
+                                        label = { Text("Minutes") },
+                                        placeholder = { Text("0") },
+                                        singleLine = true,
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                        modifier = Modifier.fillMaxWidth(),
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedBorderColor = Color(0xFF00BCD4),
+                                            focusedLabelColor = Color(0xFF00BCD4)
+                                        )
+                                    )
+                                    
+                                    // Quick add buttons
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        modifier = Modifier.fillMaxWidth()
                                     ) {
-                                        Text(text = "+${quick}m")
+                                        listOf(1, 5, 10).forEach { quick ->
+                                            OutlinedButton(
+                                                onClick = {
+                                                    val current = addMinutesText.toIntOrNull() ?: 0
+                                                    addMinutesText = (current + quick).toString()
+                                                },
+                                                modifier = Modifier.weight(1f),
+                                                colors = ButtonDefaults.outlinedButtonColors(
+                                                    contentColor = Color(0xFF00BCD4)
+                                                ),
+                                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00BCD4))
+                                            ) {
+                                                Text("+${quick}m")
+                                            }
+                                        }
                                     }
-                                }
-                            }
-                        } else {
-                            // Developer mode - show password field and enabled controls
-                            Text("Developer Mode", style = MaterialTheme.typography.titleSmall)
-                            OutlinedTextField(
-                                value = developerPassword,
-                                onValueChange = { developerPassword = it },
-                                label = { Text("Developer Password") },
-                                singleLine = true,
-                                visualTransformation = PasswordVisualTransformation(),
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
-                            )
-                            
-                            OutlinedTextField(
-                                value = addMinutesText,
-                                onValueChange = { input ->
-                                    addMinutesText = input.filter { it.isDigit() }.take(3)
-                                },
-                                label = { Text("Minutes") },
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                            )
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                listOf(1, 5, 10).forEach { quick ->
-                                    OutlinedButton(onClick = {
-                                        val current = addMinutesText.toIntOrNull() ?: 0
-                                        addMinutesText = (current + quick).toString()
-                                    }) {
-                                        Text(text = "+${quick}m")
-                                    }
+                                } else {
+                                    // Locked state
+                                    Text(
+                                        text = "🔒 Locked for manual time entry",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = Color.Gray,
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 8.dp)
+                                    )
                                 }
                             }
                         }
                         
-                        // Push-up option - always available
-                        HorizontalDivider()
-                        Text("Earn Time", style = MaterialTheme.typography.titleSmall)
-                        Button(
-                            onClick = {
-                                showAddTimeDialog = false
-                                showDeveloperMode = false
-                                developerPassword = ""
-                                val intent = Intent(context, PushUpCounterActivity::class.java)
-                                pushUpLauncher.launch(intent)
-                            },
+                        // Earn Time Section
+                        Card(
                             modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF7B68EE), // Soft purple-blue instead of bright pink
-                                contentColor = White
+                            colors = CardDefaults.cardColors(
+                                containerColor = Color(0xFF00BCD4).copy(alpha = 0.15f)
                             ),
-                            shape = RoundedCornerShape(12.dp)
+                            shape = RoundedCornerShape(16.dp)
                         ) {
-                            Text(
-                                text = "🏋️ Do Push-ups (1 push-up = 1 minute)",
-                                modifier = Modifier.padding(vertical = 4.dp)
-                            )
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Add,
+                                        contentDescription = null,
+                                        tint = Color(0xFF00BCD4),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Earn Time",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                                
+                                Button(
+                                    onClick = {
+                                        showAddTimeDialog = false
+                                        showDeveloperMode = false
+                                        developerPassword = ""
+                                        val intent = Intent(context, PushUpCounterActivity::class.java)
+                                        pushUpLauncher.launch(intent)
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(56.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Color(0xFF00BCD4)
+                                    ),
+                                    shape = RoundedCornerShape(12.dp),
+                                    elevation = ButtonDefaults.buttonElevation(
+                                        defaultElevation = 4.dp,
+                                        pressedElevation = 8.dp
+                                    )
+                                ) {
+                                    Row(
+                                        horizontalArrangement = Arrangement.Center,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "🏋️",
+                                            fontSize = 24.sp,
+                                            modifier = Modifier.padding(end = 8.dp)
+                                        )
+                                        Text(
+                                            text = "Do Push-ups",
+                                            fontSize = 16.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+                                
+                                Text(
+                                    text = "1 push-up = 1 minute unblock time",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color(0xFF00BCD4),
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
                         }
                     }
-                }
+                },
+                shape = RoundedCornerShape(24.dp)
             )
         }
         
