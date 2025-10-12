@@ -1,9 +1,13 @@
 package com.example.socialsentry.presentation.ui.screen
 
 import android.content.res.Configuration
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -14,7 +18,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -24,11 +31,18 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.socialsentry.ui.theme.*
+import kotlinx.coroutines.delay
 
 @Composable
 fun GameDashboardScreen() {
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    
+    // Entrance animation
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        visible = true
+    }
     
     Box(
         modifier = Modifier
@@ -45,14 +59,20 @@ fun GameDashboardScreen() {
                     .padding(24.dp),
                 verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
-                // Quote Section
-                QuoteSection()
+                // Quote Section with animation
+                AnimatedSection(visible = visible, delay = 0) {
+                    QuoteSection()
+                }
                 
                 // Statistics Section with Radar Chart
-                StatisticsSection()
+                AnimatedSection(visible = visible, delay = 100) {
+                    StatisticsSection()
+                }
                 
                 // System Section
-                SystemSection()
+                AnimatedSection(visible = visible, delay = 200) {
+                    SystemSection()
+                }
             }
         } else {
             // Portrait: Show Player Profile prominently
@@ -63,13 +83,46 @@ fun GameDashboardScreen() {
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Player Section - Takes most of the space
-                PlayerSection()
+                // Player Section with animation
+                AnimatedSection(visible = visible, delay = 0) {
+                    PlayerSection()
+                }
                 
                 // Quick Stats Summary
-                QuickStatsSection()
+                AnimatedSection(visible = visible, delay = 150) {
+                    QuickStatsSection()
+                }
             }
         }
+    }
+}
+
+@Composable
+fun AnimatedSection(
+    visible: Boolean,
+    delay: Long = 0,
+    content: @Composable () -> Unit
+) {
+    var isVisible by remember { mutableStateOf(false) }
+    
+    LaunchedEffect(visible) {
+        if (visible) {
+            delay(delay)
+            isVisible = true
+        }
+    }
+    
+    AnimatedVisibility(
+        visible = isVisible,
+        enter = fadeIn(
+            animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing)
+        ) + slideInVertically(
+            initialOffsetY = { it / 4 },
+            animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing)
+        ),
+        exit = fadeOut()
+    ) {
+        content()
     }
 }
 
@@ -78,6 +131,12 @@ fun PlayerSection() {
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .shadow(
+                elevation = 8.dp,
+                shape = RoundedCornerShape(16.dp),
+                ambientColor = BrightPink.copy(alpha = 0.15f),
+                spotColor = BrightPink.copy(alpha = 0.15f)
+            )
             .clip(RoundedCornerShape(16.dp))
             .background(Color(0xFF1A1A1A))
             .padding(20.dp)
@@ -162,7 +221,18 @@ fun PlayerSection() {
         
         Spacer(modifier = Modifier.height(16.dp))
         
-        // Level and Title
+        // Level and Title with glowing icon
+        val infiniteTransition = rememberInfiniteTransition(label = "icon glow")
+        val iconGlow by infiniteTransition.animateFloat(
+            initialValue = 0.7f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(1500, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "icon alpha"
+        )
+        
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth()
@@ -170,7 +240,13 @@ fun PlayerSection() {
             Box(
                 modifier = Modifier
                     .size(36.dp)
-                    .background(Color(0xFF00BCD4), RoundedCornerShape(8.dp)),
+                    .shadow(
+                        elevation = 8.dp,
+                        shape = RoundedCornerShape(8.dp),
+                        ambientColor = Color(0xFF00BCD4).copy(alpha = iconGlow * 0.5f),
+                        spotColor = Color(0xFF00BCD4).copy(alpha = iconGlow * 0.5f)
+                    )
+                    .background(Color(0xFF00BCD4).copy(alpha = iconGlow), RoundedCornerShape(8.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -207,7 +283,7 @@ fun PlayerSection() {
         
         Spacer(modifier = Modifier.height(20.dp))
         
-        // XP Progress Bar
+        // XP Progress Bar with pulsing animation
         Column {
             Text(
                 text = "0/100 XP",
@@ -218,15 +294,7 @@ fun PlayerSection() {
             
             Spacer(modifier = Modifier.height(8.dp))
             
-            LinearProgressIndicator(
-                progress = { 0.0f },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(6.dp)
-                    .clip(RoundedCornerShape(3.dp)),
-                color = BrightPink,
-                trackColor = Color(0xFF2A2A2A)
-            )
+            AnimatedProgressBar(progress = 0.0f)
         }
         
         Spacer(modifier = Modifier.height(20.dp))
@@ -276,18 +344,42 @@ fun PlayerSection() {
         
         Spacer(modifier = Modifier.height(20.dp))
         
-        // New Page Button
+        // New Page Button with press animation
+        var isPressed by remember { mutableStateOf(false) }
+        val scale by animateFloatAsState(
+            targetValue = if (isPressed) 0.95f else 1f,
+            animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+            label = "button scale"
+        )
+        
         OutlinedButton(
             onClick = { },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(48.dp),
+                .height(48.dp)
+                .scale(scale),
             colors = ButtonDefaults.outlinedButtonColors(
                 containerColor = Color.Transparent,
                 contentColor = TextGray
             ),
             border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2A2A2A)),
-            shape = RoundedCornerShape(8.dp)
+            shape = RoundedCornerShape(8.dp),
+            interactionSource = remember { MutableInteractionSource() }
+                .also { interactionSource ->
+                    LaunchedEffect(interactionSource) {
+                        interactionSource.interactions.collect { interaction ->
+                            when (interaction) {
+                                is androidx.compose.foundation.interaction.PressInteraction.Press -> {
+                                    isPressed = true
+                                }
+                                is androidx.compose.foundation.interaction.PressInteraction.Release,
+                                is androidx.compose.foundation.interaction.PressInteraction.Cancel -> {
+                                    isPressed = false
+                                }
+                            }
+                        }
+                    }
+                }
         ) {
             Icon(
                 imageVector = Icons.Default.Add,
@@ -307,10 +399,48 @@ fun PlayerSection() {
 }
 
 @Composable
+fun AnimatedProgressBar(progress: Float) {
+    // Pulsing animation for the progress bar
+    val infiniteTransition = rememberInfiniteTransition(label = "progress pulse")
+    val alpha by infiniteTransition.animateFloat(
+        initialValue = 0.6f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "progress alpha"
+    )
+    
+    Box(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        // Background track
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(6.dp)
+                .clip(RoundedCornerShape(3.dp))
+                .background(Color(0xFF2A2A2A))
+        )
+        
+        // Animated progress
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(progress)
+                .height(6.dp)
+                .clip(RoundedCornerShape(3.dp))
+                .background(BrightPink.copy(alpha = alpha))
+        )
+    }
+}
+
+@Composable
 fun QuoteSection() {
     Box(
         modifier = Modifier
             .fillMaxWidth()
+            .shadow(4.dp, RoundedCornerShape(16.dp))
             .clip(RoundedCornerShape(16.dp))
             .background(Color(0xFF1A1A1A))
             .padding(40.dp),
@@ -333,6 +463,7 @@ fun StatisticsSection() {
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .shadow(6.dp, RoundedCornerShape(16.dp))
             .clip(RoundedCornerShape(16.dp))
             .background(Color(0xFF1A1A1A))
             .padding(32.dp),
@@ -377,6 +508,7 @@ fun QuickStatsSection() {
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .shadow(6.dp, RoundedCornerShape(16.dp))
             .clip(RoundedCornerShape(16.dp))
             .background(Color(0xFF1A1A1A))
             .padding(20.dp)
@@ -482,11 +614,19 @@ fun SystemSection() {
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .shadow(6.dp, RoundedCornerShape(16.dp))
             .clip(RoundedCornerShape(16.dp))
             .background(Color(0xFF1A1A1A))
             .padding(24.dp)
     ) {
-        // Power Button
+        // Power Button with hover animation
+        var powerPressed by remember { mutableStateOf(false) }
+        val powerScale by animateFloatAsState(
+            targetValue = if (powerPressed) 0.85f else 1f,
+            animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+            label = "power button scale"
+        )
+        
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Center
@@ -494,8 +634,37 @@ fun SystemSection() {
             Box(
                 modifier = Modifier
                     .size(56.dp)
+                    .scale(powerScale)
                     .background(Color(0xFF0F0F0F), RoundedCornerShape(28.dp))
-                    .border(1.dp, Color(0xFF2A2A2A), RoundedCornerShape(28.dp)),
+                    .border(1.dp, Color(0xFF2A2A2A), RoundedCornerShape(28.dp))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) {
+                        // Power button action
+                    }
+                    .then(
+                        Modifier.clickable(
+                            interactionSource = remember { MutableInteractionSource() }
+                                .also { interactionSource ->
+                                    LaunchedEffect(interactionSource) {
+                                        interactionSource.interactions.collect { interaction ->
+                                            when (interaction) {
+                                                is androidx.compose.foundation.interaction.PressInteraction.Press -> {
+                                                    powerPressed = true
+                                                }
+                                                is androidx.compose.foundation.interaction.PressInteraction.Release,
+                                                is androidx.compose.foundation.interaction.PressInteraction.Cancel -> {
+                                                    powerPressed = false
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                            indication = null,
+                            onClick = {}
+                        )
+                    ),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -582,9 +751,23 @@ fun StatItem(
 
 @Composable
 fun ImprovedRadarChart() {
+    // Subtle breathing animation for the radar chart
+    val infiniteTransition = rememberInfiniteTransition(label = "radar pulse")
+    val scale by infiniteTransition.animateFloat(
+        initialValue = 0.98f,
+        targetValue = 1.02f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(3000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "radar scale"
+    )
+    
     // Hexagon radar chart matching the reference image
     Box(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .scale(scale),
         contentAlignment = Alignment.Center
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
