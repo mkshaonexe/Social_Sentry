@@ -1,6 +1,7 @@
 package com.example.socialsentry.data.datastore
 
 import android.content.Context
+import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.datastore.core.Serializer
 import androidx.datastore.dataStore
@@ -96,25 +97,63 @@ class YouTubeTrackingDataStore(private val context: Context) {
         context.youtubeTrackingDataStore.updateData { currentStats ->
             val updatedSessions = currentStats.sessions.toMutableList()
             
-            // Check if we need to end a previous session with the same title
-            val existingIndex = updatedSessions.indexOfLast { 
-                it.title == session.title && it.endTime == null 
+            // Normalize title for comparison
+            val normalizedNewTitle = normalizeTitle(session.title)
+            
+            // Check if we need to merge with a recent session (within 30 seconds)
+            val recentSessionIndex = updatedSessions.indexOfLast { existingSession ->
+                val normalizedExistingTitle = normalizeTitle(existingSession.title)
+                val timeDiff = session.startTime - (existingSession.endTime ?: existingSession.startTime)
+                
+                // Same video within 30 seconds = likely continuation of same viewing session
+                normalizedExistingTitle == normalizedNewTitle && 
+                timeDiff >= 0 && 
+                timeDiff <= 30000 // 30 seconds
             }
             
-            if (existingIndex != -1 && session.endTime != null) {
-                // Update existing session with end time
-                updatedSessions[existingIndex] = updatedSessions[existingIndex].copy(
-                    endTime = session.endTime,
-                    durationMs = session.endTime - updatedSessions[existingIndex].startTime
+            if (recentSessionIndex != -1) {
+                // Merge with existing session - extend the duration
+                val existingSession = updatedSessions[recentSessionIndex]
+                val mergedSession = existingSession.copy(
+                    endTime = session.endTime ?: session.startTime,
+                    durationMs = (session.endTime ?: session.startTime) - existingSession.startTime
                 )
+                updatedSessions[recentSessionIndex] = mergedSession
+                Log.d("YouTubeTracking", "Merged session: '${session.title}' - extended to ${mergedSession.durationMs / 1000}s")
             } else {
-                // Add new session
-                updatedSessions.add(session)
+                // Check if we need to end a previous session with the same title
+                val existingIndex = updatedSessions.indexOfLast { 
+                    normalizeTitle(it.title) == normalizedNewTitle && it.endTime == null 
+                }
+                
+                if (existingIndex != -1 && session.endTime != null) {
+                    // Update existing session with end time
+                    updatedSessions[existingIndex] = updatedSessions[existingIndex].copy(
+                        endTime = session.endTime,
+                        durationMs = session.endTime - updatedSessions[existingIndex].startTime
+                    )
+                } else {
+                    // Add new session
+                    updatedSessions.add(session)
+                }
             }
             
             // Recalculate stats
             recalculateStats(updatedSessions)
         }
+    }
+    
+    /**
+     * Normalize title for comparison to avoid duplicates
+     */
+    private fun normalizeTitle(title: String): String {
+        return title
+            .trim()
+            .replace(Regex("\\s+"), " ")
+            .replace(Regex("[,،、]+"), ",")
+            .replace(Regex("[|｜]+"), "|")
+            .replace(Regex("[\"\"\"'']+"), "")
+            .lowercase()
     }
 
     suspend fun endSession(title: String, endTime: Long) {

@@ -503,7 +503,7 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
     private var lastYouTubeTitle: String? = null
     private var lastYouTubeChannel: String? = null
     private var youtubeSessionStartTime: Long? = null
-    private val youtubeSessionDebounceMs = 5000L // 5 seconds to avoid quick switches
+    private val youtubeSessionDebounceMs = 15000L // 15 seconds to avoid premature session ending
     private var lastYouTubeTrackingTime: Long = 0L
     private val youtubeTrackingCooldownMs = 2000L // 2 second cooldown between tracking calls
     private var lastVideoDetectionTime: Long = 0L
@@ -845,6 +845,18 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
                     Log.v(TAG, "YouTube tracking: No video title detected")
                     // No video detected, but don't end session immediately - wait a bit
                     val timeSinceLastVideo = now - lastVideoDetectionTime
+                    
+                    // If we have an active session, try to maintain it even if title detection fails
+                    if (currentYouTubeSession != null) {
+                        Log.v(TAG, "YouTube tracking: Maintaining existing session despite title detection failure")
+                        // Update session progress without ending it
+                        currentYouTubeSession?.let { session ->
+                            Log.v(TAG, "YouTube tracking: Session in progress - '${session.title}' (${(now - session.startTime) / 1000}s)")
+                        }
+                        return@launch
+                    }
+                    
+                    // Only end session if we've been without video detection for too long
                     if (timeSinceLastVideo > youtubeSessionDebounceMs) {
                         endCurrentYouTubeSession()
                     }
@@ -857,7 +869,11 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
                 lastVideoDetectionTime = now
                 
                 // Check if this is a new video (title changed)
-                if (title != lastYouTubeTitle) {
+                // Normalize titles for comparison to avoid false "new video" detections
+                val normalizedNewTitle = normalizeTitle(title)
+                val normalizedLastTitle = normalizeTitle(lastYouTubeTitle)
+                
+                if (normalizedNewTitle != normalizedLastTitle) {
                     Log.d(TAG, "YouTube tracking: New video detected (previous: '$lastYouTubeTitle', new: '$title')")
                     // End previous session
                     endCurrentYouTubeSession()
@@ -890,6 +906,22 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
                 Log.e(TAG, "Error tracking YouTube usage", e)
             }
         }
+    }
+    
+    /**
+     * Normalize video title for comparison to avoid false "new video" detections
+     * Removes extra spaces, punctuation variations, and normalizes Unicode characters
+     */
+    private fun normalizeTitle(title: String?): String {
+        if (title == null) return ""
+        
+        return title
+            .trim()
+            .replace(Regex("\\s+"), " ") // Replace multiple spaces with single space
+            .replace(Regex("[,،、]+"), ",") // Normalize different comma types
+            .replace(Regex("[|｜]+"), "|") // Normalize different pipe characters
+            .replace(Regex("[\"\"\"'']+"), "") // Remove various quote types
+            .lowercase() // Convert to lowercase for case-insensitive comparison
     }
     
     private fun extractYouTubeVideoInfo(root: AccessibilityNodeInfo): Pair<String?, String?> {
@@ -953,11 +985,11 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
     }
     
     private fun findYouTubeTitleByText(node: AccessibilityNodeInfo, depth: Int = 0): String? {
-        if (depth > 8) return null // Increased recursion limit
+        if (depth > 10) return null // Increased recursion limit for better coverage
         
         // Look for text nodes that are likely video titles
         val text = node.text?.toString()
-        if (!text.isNullOrBlank() && text.length > 10) { // Reduced minimum length to catch more titles
+        if (!text.isNullOrBlank() && text.length > 5) { // Reduced minimum length to catch more titles
             Log.d(TAG, "YouTube tracking: Found text node: '$text' (length: ${text.length})")
             // Skip common UI elements
             val skipTexts = listOf(
@@ -966,7 +998,11 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
                 "Play next in queue", "Visit advertiser", "Saved to",
                 "Watch later", "Take a Break!", "Play next", "Sponsored",
                 "Install", "FREE", "MyBL", "My Banglalink", "Install",
-                "Install", "Install", "Install", "Install", "Install"
+                "Install", "Install", "Install", "Install", "Install",
+                "From your subscriptions", "From Redwan Hushen", "From the series",
+                "View key concept", "Tap to correct category", "Recent Videos",
+                "K views", "M views", "B views", "subscribers", "Subscribe",
+                "months", "days", "hours", "minutes", "seconds", "years"
             )
             
             val shouldSkip = skipTexts.any { text.contains(it, ignoreCase = true) }
@@ -975,14 +1011,45 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
                 val isStudyContent = text.contains("ফিজিক্স", ignoreCase = true) || 
                                    text.contains("physics", ignoreCase = true) ||
                                    text.contains("HSC", ignoreCase = true) ||
+                                   text.contains("SSC", ignoreCase = true) ||
                                    text.contains("পর্ব", ignoreCase = true) ||
                                    text.contains("ক্লাস", ignoreCase = true) ||
                                    text.contains("অধ্যায়", ignoreCase = true) ||
-                                   text.length > 30 // Long titles are likely real video titles
+                                   text.contains("Chapter", ignoreCase = true) ||
+                                   text.contains("Lecture", ignoreCase = true) ||
+                                   text.contains("Class", ignoreCase = true) ||
+                                   text.contains("Study", ignoreCase = true) ||
+                                   text.contains("Tutorial", ignoreCase = true) ||
+                                   text.contains("Lesson", ignoreCase = true) ||
+                                   text.contains("Course", ignoreCase = true) ||
+                                   text.contains("Exam", ignoreCase = true) ||
+                                   text.contains("Test", ignoreCase = true) ||
+                                   text.contains("MCQ", ignoreCase = true) ||
+                                   text.contains("CQ", ignoreCase = true) ||
+                                   text.contains("One Shot", ignoreCase = true) ||
+                                   text.contains("Basic", ignoreCase = true) ||
+                                   text.contains("Pro", ignoreCase = true) ||
+                                   text.contains("ICT", ignoreCase = true) ||
+                                   text.contains("Math", ignoreCase = true) ||
+                                   text.contains("Chemistry", ignoreCase = true) ||
+                                   text.contains("Biology", ignoreCase = true) ||
+                                   text.contains("English", ignoreCase = true) ||
+                                   text.contains("Bangla", ignoreCase = true) ||
+                                   text.contains("বাংলা", ignoreCase = true) ||
+                                   text.contains("পদার্থবিজ্ঞান", ignoreCase = true) ||
+                                   text.contains("রসায়ন", ignoreCase = true) ||
+                                   text.contains("জীববিজ্ঞান", ignoreCase = true) ||
+                                   text.contains("গণিত", ignoreCase = true) ||
+                                   text.contains("ইংরেজি", ignoreCase = true) ||
+                                   text.contains("কাজ ক্ষমতা", ignoreCase = true) ||
+                                   text.contains("শক্তি", ignoreCase = true) ||
+                                   text.contains("সংখ্যা পদ্ধতি", ignoreCase = true) ||
+                                   text.length > 20 // Longer titles are likely real video titles
                 
                 if (isStudyContent) {
                     val className = node.className?.toString()?.lowercase() ?: ""
-                    if (className.contains("textview") || className.contains("text")) {
+                    if (className.contains("textview") || className.contains("text") || 
+                        className.contains("view") || className.contains("layout")) {
                         Log.d(TAG, "YouTube tracking: Study video title found: '$text'")
                         return text
                     }
@@ -1006,8 +1073,9 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
             val now = System.currentTimeMillis()
             val duration = now - session.startTime
             
-            // Only save sessions that are at least 2 seconds long (reduced from 3 seconds)
-            if (duration >= 2000) {
+            // Only save sessions that are at least 3 seconds long to filter out accidental taps
+            // Increased from 2 seconds to reduce noise
+            if (duration >= 3000) {
                 val completedSession = session.copy(
                     endTime = now,
                     durationMs = duration
