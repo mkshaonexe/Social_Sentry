@@ -120,6 +120,16 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
     }
 
     private fun handleInstagram(root: AccessibilityNodeInfo, currentMinute: Int) {
+        val now = System.currentTimeMillis()
+        // PRIORITY: Enforce mandatory break overlay during cooldown window
+        val breakEndTime = instagramMandatoryBreakEndTime
+        if (breakEndTime != null && now < breakEndTime) {
+            val remainingSeconds = ((breakEndTime - now) / 1000).toInt()
+            Log.d(TAG, "Instagram scroll limiter: Mandatory break active (${remainingSeconds}s remaining)")
+            showScrollLimiterOverlay("Instagram", remainingSeconds)
+            return
+        }
+
         val app = settings.instagram
         if (!app.isBlocked || !isWithinTimeRange(app.blockTimeStart, app.blockTimeEnd, currentMinute)) {
             return
@@ -147,6 +157,16 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
     }
 
     private fun handleYoutube(root: AccessibilityNodeInfo, currentMinute: Int) {
+        val now = System.currentTimeMillis()
+        // PRIORITY: Enforce mandatory break overlay during cooldown window
+        val breakEndTime = youtubeMandatoryBreakEndTime
+        if (breakEndTime != null && now < breakEndTime) {
+            val remainingSeconds = ((breakEndTime - now) / 1000).toInt()
+            Log.d(TAG, "YouTube scroll limiter: Mandatory break active (${remainingSeconds}s remaining)")
+            showScrollLimiterOverlay("YouTube", remainingSeconds)
+            return
+        }
+
         val app = settings.youtube
         if (!app.isBlocked || !isWithinTimeRange(app.blockTimeStart, app.blockTimeEnd, currentMinute)) {
             return
