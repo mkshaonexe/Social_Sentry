@@ -7,6 +7,7 @@ import com.example.socialsentry.data.datastore.SocialSentryDataStore
 import com.example.socialsentry.data.model.BlockableFeature
 import com.example.socialsentry.data.model.SocialApp
 import com.example.socialsentry.data.model.SocialSentrySettings
+import com.example.socialsentry.data.model.GameDashboard
 import com.example.socialsentry.domain.UnblockAllowanceManager
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -210,6 +211,14 @@ class SocialSentryViewModel(
     // Internal utility to write entire settings snapshot (used by settings UI)
     suspend fun updateSettingsDirect(updated: SocialSentrySettings) {
         dataStore.updateSettings(updated)
+    }
+
+    fun updateGameDashboard(transform: (GameDashboard) -> GameDashboard) {
+        val current = settings.value.gameDashboard
+        val updated = transform(current)
+        viewModelScope.launch {
+            dataStore.updateGameDashboard(updated)
+        }
     }
 
     private fun dataStoreContext(): android.content.Context {

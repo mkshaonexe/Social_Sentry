@@ -43,6 +43,8 @@ import kotlinx.coroutines.launch
 import android.app.Activity
 import android.content.Intent
 import com.example.socialsentry.presentation.ui.pushup.PushUpCounterActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -58,6 +60,7 @@ fun SettingsScreen(
     var isAccessibilityEnabled by remember { mutableStateOf(false) }
     var isManagedAppsExpanded by remember { mutableStateOf(false) }
     var isScrollLimiterExpanded by remember { mutableStateOf(false) }
+    var isGameDashboardExpanded by remember { mutableStateOf(false) }
     var showAccessibilityPanel by remember { mutableStateOf(false) }
     
     // Check accessibility service status
@@ -184,7 +187,6 @@ fun SettingsScreen(
                 )
             }
         }
-        
         // Temporary Unblock section is hidden as requested
         
         // Scroll Limiter Header - Clickable to expand/collapse
@@ -408,6 +410,163 @@ fun SettingsScreen(
                                 disabledUncheckedTrackColor = Color(0xFF757575).copy(alpha = 0.3f)
                             )
                         )
+                    }
+                }
+            }
+        }
+
+        // Game Dashboard - Clickable to expand/collapse and edit content
+        item {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .clickable { isGameDashboardExpanded = !isGameDashboardExpanded },
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Game Dashboard",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Customize name, title, images and stats",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                        )
+                    }
+                    Icon(
+                        imageVector = if (isGameDashboardExpanded)
+                            Icons.Default.KeyboardArrowUp
+                        else
+                            Icons.Default.KeyboardArrowDown,
+                        contentDescription = if (isGameDashboardExpanded) "Collapse" else "Expand",
+                        tint = MaterialTheme.colorScheme.onBackground
+                    )
+                }
+            }
+        }
+
+        if (isGameDashboardExpanded) {
+            item {
+                val dash = settings.gameDashboard
+                val bannerPicker = rememberLauncherForActivityResult(
+                    contract = ActivityResultContracts.GetContent()
+                ) { uri ->
+                    if (uri != null) {
+                        viewModel.updateGameDashboard { it.copy(bannerImageUri = uri.toString()) }
+                    }
+                }
+
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp)),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(20.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        // Basic info
+                        OutlinedTextField(
+                            value = dash.playerName,
+                            onValueChange = { v -> viewModel.updateGameDashboard { it.copy(playerName = v) } },
+                            label = { Text("Player name") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        OutlinedTextField(
+                            value = dash.title,
+                            onValueChange = { v -> viewModel.updateGameDashboard { it.copy(title = v) } },
+                            label = { Text("Title") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        OutlinedTextField(
+                            value = dash.rank,
+                            onValueChange = { v -> viewModel.updateGameDashboard { it.copy(rank = v) } },
+                            label = { Text("Rank") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        OutlinedTextField(
+                            value = dash.quote,
+                            onValueChange = { v -> viewModel.updateGameDashboard { it.copy(quote = v) } },
+                            label = { Text("Quote") },
+                            singleLine = false,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        // Numbers
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            OutlinedTextField(
+                                value = dash.currentXp.toString(),
+                                onValueChange = { v -> v.toIntOrNull()?.let { n -> viewModel.updateGameDashboard { it.copy(currentXp = n) } } },
+                                label = { Text("Current XP") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier.weight(1f)
+                            )
+                            OutlinedTextField(
+                                value = dash.maxXp.toString(),
+                                onValueChange = { v -> v.toIntOrNull()?.let { n -> viewModel.updateGameDashboard { it.copy(maxXp = n) } } },
+                                label = { Text("Max XP") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        OutlinedTextField(
+                            value = dash.goldCredits.toString(),
+                            onValueChange = { v -> v.toIntOrNull()?.let { n -> viewModel.updateGameDashboard { it.copy(goldCredits = n) } } },
+                            label = { Text("Gold credits") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        // Stats (0..1)
+                        @Composable
+                        fun StatSlider(label: String, value: Float, onChange: (Float) -> Unit) {
+                            Column {
+                                Text(label, color = MaterialTheme.colorScheme.onBackground)
+                                Slider(
+                                    value = value,
+                                    onValueChange = onChange,
+                                    valueRange = 0f..1f
+                                )
+                            }
+                        }
+                        StatSlider("FIT", dash.statFit) { v -> viewModel.updateGameDashboard { it.copy(statFit = v) } }
+                        StatSlider("SOC", dash.statSoc) { v -> viewModel.updateGameDashboard { it.copy(statSoc = v) } }
+                        StatSlider("INT", dash.statInt) { v -> viewModel.updateGameDashboard { it.copy(statInt = v) } }
+                        StatSlider("DIS", dash.statDis) { v -> viewModel.updateGameDashboard { it.copy(statDis = v) } }
+                        StatSlider("FOC", dash.statFoc) { v -> viewModel.updateGameDashboard { it.copy(statFoc = v) } }
+                        StatSlider("FIN", dash.statFin) { v -> viewModel.updateGameDashboard { it.copy(statFin = v) } }
+
+                        // Images
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            OutlinedButton(onClick = { bannerPicker.launch("image/*") }, modifier = Modifier.weight(1f)) {
+                                Text("Pick banner")
+                            }
+                        }
                     }
                 }
             }

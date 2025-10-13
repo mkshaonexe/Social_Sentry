@@ -97,5 +97,28 @@ data class SocialSentrySettings(
     // Legacy field kept for backwards compatibility
     @Deprecated("Use individual app scroll limiter flags")
     val scrollLimiterEnabled: Boolean = false
+    ,
+    // Game Dashboard configuration
+    val gameDashboard: GameDashboard = GameDashboard()
+)
+
+@Serializable
+data class GameDashboard(
+    val playerName: String = "Adam",
+    val title: String = "Level 1 ⚔ The Awakening",
+    val rank: String = "E-Rank Hunter",
+    val quote: String = "THE SYSTEM USES ME, AND I USE THE SYSTEM",
+    val avatarImageUri: String? = null,
+    val bannerImageUri: String? = null,
+    // Six stats mapped to labels [FIT, SOC, INT, DIS, FOC, FIN]
+    val statFit: Float = 0.85f,
+    val statSoc: Float = 0.95f,
+    val statInt: Float = 0.78f,
+    val statDis: Float = 0.65f,
+    val statFoc: Float = 0.72f,
+    val statFin: Float = 0.88f,
+    val currentXp: Int = 0,
+    val maxXp: Int = 100,
+    val goldCredits: Int = 0
 )
 

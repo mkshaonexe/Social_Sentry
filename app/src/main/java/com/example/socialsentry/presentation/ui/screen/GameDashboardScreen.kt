@@ -32,9 +32,19 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.socialsentry.ui.theme.*
 import kotlinx.coroutines.delay
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.socialsentry.presentation.viewmodel.SocialSentryViewModel
+import org.koin.androidx.compose.koinViewModel
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 
 @Composable
-fun GameDashboardScreen() {
+fun GameDashboardScreen(
+    viewModel: SocialSentryViewModel = koinViewModel()
+) {
+    val settings by viewModel.settings.collectAsStateWithLifecycle()
+    val dashboard = settings.gameDashboard
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     
@@ -61,12 +71,21 @@ fun GameDashboardScreen() {
             ) {
                 // Quote Section with animation
                 AnimatedSection(visible = visible, delay = 0) {
-                    QuoteSection()
+                    QuoteSection(text = dashboard.quote)
                 }
                 
                 // Statistics Section with Radar Chart
                 AnimatedSection(visible = visible, delay = 100) {
-                    StatisticsSection()
+                    StatisticsSection(
+                        stats = listOf(
+                            dashboard.statFit,
+                            dashboard.statSoc,
+                            dashboard.statInt,
+                            dashboard.statDis,
+                            dashboard.statFoc,
+                            dashboard.statFin
+                        )
+                    )
                 }
                 
                 // System Section
@@ -85,12 +104,29 @@ fun GameDashboardScreen() {
             ) {
                 // Player Section with animation
                 AnimatedSection(visible = visible, delay = 0) {
-                    PlayerSection()
+                    PlayerSection(
+                        playerName = dashboard.playerName,
+                        title = dashboard.title,
+                        rank = dashboard.rank,
+                        currentXp = dashboard.currentXp,
+                        maxXp = dashboard.maxXp,
+                        goldCredits = dashboard.goldCredits
+                    )
                 }
                 
                 // Quick Stats Summary
                 AnimatedSection(visible = visible, delay = 150) {
-                    QuickStatsSection()
+                    QuickStatsSection(
+                        quote = dashboard.quote,
+                        stats = listOf(
+                            dashboard.statFit,
+                            dashboard.statSoc,
+                            dashboard.statInt,
+                            dashboard.statDis,
+                            dashboard.statFoc,
+                            dashboard.statFin
+                        )
+                    )
                 }
             }
         }
@@ -127,7 +163,14 @@ fun AnimatedSection(
 }
 
 @Composable
-fun PlayerSection() {
+fun PlayerSection(
+    playerName: String,
+    title: String,
+    rank: String,
+    currentXp: Int,
+    maxXp: Int,
+    goldCredits: Int
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -154,7 +197,7 @@ fun PlayerSection() {
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = "Adam",
+                text = playerName,
                 fontSize = 18.sp,
                 color = White,
                 fontWeight = FontWeight.Bold
@@ -163,60 +206,40 @@ fun PlayerSection() {
         
         Spacer(modifier = Modifier.height(16.dp))
         
-        // Player Banner Card with Hunter Silhouette
+        // Player Banner Card (full image when selected)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(16f / 9f)
                 .clip(RoundedCornerShape(12.dp))
-                .background(
-                    Brush.radialGradient(
-                        colors = listOf(
-                            Color(0xFF00ACC1),
-                            Color(0xFF00838F),
-                            Color(0xFF006064),
-                            Color(0xFF00363A)
-                        ),
-                        radius = 1200f
-                    )
-                ),
+                .background(Color.Black),
             contentAlignment = Alignment.Center
         ) {
-            // Mystical circle effect in background
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                val centerX = size.width / 2
-                val centerY = size.height / 2
-                val radius = size.minDimension / 3
-                
-                // Draw glowing circle
-                drawCircle(
-                    color = Color(0xFF00BCD4).copy(alpha = 0.2f),
-                    radius = radius,
-                    center = androidx.compose.ui.geometry.Offset(centerX, centerY)
+            // Show selected banner image as full background if present
+            val context = LocalContext.current
+            val settingsViewModel = koinViewModel<SocialSentryViewModel>()
+            val settings by settingsViewModel.settings.collectAsStateWithLifecycle()
+            val bannerUri = settings.gameDashboard.bannerImageUri
+            if (bannerUri != null) {
+                AsyncImage(
+                    model = bannerUri,
+                    contentDescription = "Banner",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
                 )
-                drawCircle(
-                    color = Color(0xFF00BCD4).copy(alpha = 0.3f),
-                    radius = radius * 0.9f,
-                    center = androidx.compose.ui.geometry.Offset(centerX, centerY),
-                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2f)
-                )
-                drawCircle(
-                    color = Color(0xFF00BCD4).copy(alpha = 0.4f),
-                    radius = radius * 0.8f,
-                    center = androidx.compose.ui.geometry.Offset(centerX, centerY),
-                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.5f)
-                )
+            } else {
+                // Minimal placeholder
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val centerX = size.width / 2
+                    val centerY = size.height / 2
+                    val radius = size.minDimension / 3
+                    drawCircle(
+                        color = Color(0xFF444444),
+                        radius = radius,
+                        center = androidx.compose.ui.geometry.Offset(centerX, centerY)
+                    )
+                }
             }
-            
-            // Hunter Silhouette
-            Icon(
-                imageVector = Icons.Default.AccountCircle,
-                contentDescription = "Hunter Avatar",
-                tint = Color.Black.copy(alpha = 0.8f),
-                modifier = Modifier
-                    .size(100.dp)
-                    .offset(y = 10.dp)
-            )
         }
         
         Spacer(modifier = Modifier.height(16.dp))
@@ -258,7 +281,7 @@ fun PlayerSection() {
             Spacer(modifier = Modifier.width(12.dp))
             Column {
                 Text(
-                    text = "Level 1 ⚔ The Awakening",
+                    text = title,
                     fontSize = 16.sp,
                     color = White,
                     fontWeight = FontWeight.Bold
@@ -267,7 +290,7 @@ fun PlayerSection() {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Rank: E-Rank Hunter",
+                        text = "Rank: $rank",
                         fontSize = 13.sp,
                         color = TextGray,
                         fontWeight = FontWeight.Normal
@@ -286,7 +309,7 @@ fun PlayerSection() {
         // XP Progress Bar with pulsing animation
         Column {
             Text(
-                text = "0/100 XP",
+                text = "${currentXp}/${maxXp} XP",
                 fontSize = 12.sp,
                 color = BrightPink,
                 fontWeight = FontWeight.Bold
@@ -294,7 +317,8 @@ fun PlayerSection() {
             
             Spacer(modifier = Modifier.height(8.dp))
             
-            AnimatedProgressBar(progress = 0.0f)
+            val progress = (currentXp.toFloat() / maxXp.coerceAtLeast(1)).coerceIn(0f, 1f)
+            AnimatedProgressBar(progress = progress)
         }
         
         Spacer(modifier = Modifier.height(20.dp))
@@ -312,7 +336,7 @@ fun PlayerSection() {
             
             StatItem(
                 label = "XP earned:",
-                value = "0 XP",
+                value = "${currentXp} XP",
                 valueColor = BrightPink
             )
             
@@ -334,7 +358,7 @@ fun PlayerSection() {
                     color = White
                 )
                 Text(
-                    text = "0 Credits",
+                    text = "$goldCredits Credits",
                     fontSize = 13.sp,
                     color = Color(0xFFFFD700),
                     fontWeight = FontWeight.Bold
@@ -436,7 +460,7 @@ fun AnimatedProgressBar(progress: Float) {
 }
 
 @Composable
-fun QuoteSection() {
+fun QuoteSection(text: String) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -447,7 +471,7 @@ fun QuoteSection() {
         contentAlignment = Alignment.Center
     ) {
         Text(
-            text = "THE SYSTEM USES ME, AND I USE THE SYSTEM",
+            text = text,
             fontSize = 13.sp,
             color = TextGray.copy(alpha = 0.9f),
             textAlign = TextAlign.Center,
@@ -459,7 +483,7 @@ fun QuoteSection() {
 }
 
 @Composable
-fun StatisticsSection() {
+fun StatisticsSection(stats: List<Float>) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -477,7 +501,7 @@ fun StatisticsSection() {
                 .padding(24.dp),
             contentAlignment = Alignment.Center
         ) {
-            ImprovedRadarChart()
+            ImprovedRadarChart(stats)
         }
         
         Spacer(modifier = Modifier.height(24.dp))
@@ -495,7 +519,7 @@ fun StatisticsSection() {
 }
 
 @Composable
-fun QuickStatsSection() {
+fun QuickStatsSection(quote: String, stats: List<Float>) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -506,7 +530,7 @@ fun QuickStatsSection() {
     ) {
         // Quote
         Text(
-            text = "THE SYSTEM USES ME, AND I USE THE SYSTEM",
+            text = quote,
             fontSize = 11.sp,
             color = TextGray,
             textAlign = TextAlign.Center,
@@ -524,7 +548,7 @@ fun QuickStatsSection() {
                 .padding(horizontal = 8.dp),
             contentAlignment = Alignment.Center
         ) {
-            ImprovedRadarChart()
+            ImprovedRadarChart(stats)
         }
         
         Spacer(modifier = Modifier.height(24.dp))
@@ -733,7 +757,7 @@ fun StatItem(
 }
 
 @Composable
-fun ImprovedRadarChart() {
+fun ImprovedRadarChart(stats: List<Float>) {
     // Subtle breathing animation for the radar chart
     val infiniteTransition = rememberInfiniteTransition(label = "radar pulse")
     val scale by infiniteTransition.animateFloat(
@@ -805,7 +829,7 @@ fun ImprovedRadarChart() {
             }
             
             // Draw data polygon (filled) - Sample stats values
-            val dataValues = listOf(0.85f, 0.95f, 0.78f, 0.65f, 0.72f, 0.88f)
+            val dataValues = stats.takeIf { it.size == 6 } ?: listOf(0.85f, 0.95f, 0.78f, 0.65f, 0.72f, 0.88f)
             val dataPath = androidx.compose.ui.graphics.Path()
             
             for (i in dataValues.indices) {

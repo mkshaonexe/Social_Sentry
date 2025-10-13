@@ -3,6 +3,7 @@ package com.example.socialsentry.data.datastore
 import android.content.Context
 import androidx.datastore.dataStore
 import com.example.socialsentry.data.model.SocialApp
+import com.example.socialsentry.data.model.GameDashboard
 import com.example.socialsentry.data.model.SocialSentrySettings
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -41,6 +42,12 @@ class SocialSentryDataStore(private val context: Context) {
     suspend fun updateFacebook(app: SocialApp) {
         context.socialSentrySettingsStore.updateData { current ->
             current.copy(facebook = app)
+        }
+    }
+    
+    suspend fun updateGameDashboard(dashboard: GameDashboard) {
+        context.socialSentrySettingsStore.updateData { current ->
+            current.copy(gameDashboard = dashboard)
         }
     }
     
