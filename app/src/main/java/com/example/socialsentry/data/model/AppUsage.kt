@@ -51,6 +51,28 @@ data class AppUsageStats(
  */
 object AppCategorizer {
     
+    // System apps that should be filtered out from user-facing statistics
+    // Reduced list to match Digital Wellbeing behavior - only filter truly system apps
+    private val systemAppPatterns = setOf(
+        // Core system UI and launchers only
+        "com.android.systemui", "com.google.android.launcher",
+        "com.google.android.apps.nexuslauncher", "com.google.android.apps.pixel.launcher",
+        
+        // Essential system services that Digital Wellbeing excludes
+        "com.android.settings", "com.google.android.apps.wellbeing",
+        
+        // System frameworks that should never be counted
+        "com.android.", "android.", "com.google.android.gms", "com.google.android.gsf",
+        "com.google.android.gmscore", "com.google.android.setupwizard",
+        
+        // System accessibility services
+        "com.android.accessibility", "com.google.android.accessibility",
+        "com.android.providers.", "com.android.server.", "com.android.bluetooth",
+        
+        // System notifications and status bar
+        "com.android.notification", "com.android.statusbar", "com.android.incallui"
+    )
+    
     private val categoryRules = mapOf(
         // Study & Education
         AppCategory.STUDY to listOf(
@@ -88,10 +110,24 @@ object AppCategorizer {
         
         // Utilities
         AppCategory.UTILITIES to listOf(
-            "settings", "launcher", "camera", "gallery", "file",
+            "settings", "camera", "gallery", "file",
             "manager", "cleaner", "battery", "clock", "calculator"
         )
     )
+    
+    /**
+     * Check if an app is a system app that should be filtered out
+     */
+    fun isSystemApp(packageName: String, appName: String): Boolean {
+        val searchText = "$packageName $appName".lowercase()
+        
+        return systemAppPatterns.any { pattern ->
+            when {
+                pattern.endsWith(".") -> packageName.startsWith(pattern)
+                else -> searchText.contains(pattern)
+            }
+        }
+    }
     
     /**
      * Categorize an app based on its package name and app name

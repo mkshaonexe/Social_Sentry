@@ -2075,6 +2075,11 @@ fun ScreenTimeSection() {
         hasPermission = PermissionChecker.hasUsageStatsPermission(context)
         if (hasPermission) {
             val appUsageManager = AppUsageManager(context, youtubeDataStore)
+            
+            // Get raw usage stats for debugging
+            appUsageManager.getRawUsageStatsForDebugging()
+            
+            // Get processed usage stats
             usageStats = appUsageManager.getTodayUsageStats()
         }
         isLoading = false

@@ -80,11 +80,14 @@ class AppUsageManager(
      * Get usage statistics for a time range
      */
     private suspend fun getUsageStats(startTime: Long, endTime: Long): AppUsageStats {
+        // Use INTERVAL_BEST to get more accurate data that matches Digital Wellbeing
         val usageStats = usageStatsManager.queryUsageStats(
-            UsageStatsManager.INTERVAL_DAILY,
+            UsageStatsManager.INTERVAL_BEST,
             startTime,
             endTime
         ) ?: emptyList()
+        
+        Log.d(TAG, "Retrieved ${usageStats.size} usage stats from $startTime to $endTime")
         
         val sessions = mutableListOf<AppUsageSession>()
         val categoryMap = mutableMapOf<AppCategory, Long>()
@@ -98,11 +101,18 @@ class AppUsageManager(
             
             val packageName = stats.packageName
             val appName = getAppName(packageName)
-            val category = AppCategorizer.categorizeApp(packageName, appName)
             val duration = stats.totalTimeInForeground
             
-            // Skip if it's our own app
-            if (packageName == context.packageName) continue
+            Log.d(TAG, "Processing app: $packageName ($appName) - Duration: ${duration}ms")
+            
+            // Include our own app in the statistics to match Digital Wellbeing
+            // if (packageName == context.packageName) continue
+            
+            // Only filter out truly system apps that Digital Wellbeing also excludes
+            if (AppCategorizer.isSystemApp(packageName, appName)) {
+                Log.d(TAG, "Filtering out system app: $packageName ($appName)")
+                continue
+            }
             
             // Track YouTube separately
             if (packageName == "com.google.android.youtube") {
@@ -110,6 +120,8 @@ class AppUsageManager(
                 // Don't add to category yet, we'll handle YouTube separately
                 continue
             }
+            
+            val category = AppCategorizer.categorizeApp(packageName, appName)
             
             // Add to category breakdown
             categoryMap[category] = (categoryMap[category] ?: 0L) + duration
@@ -162,6 +174,23 @@ class AppUsageManager(
             .take(10)
             .toMap()
         
+        // Debug logging to compare with Digital Wellbeing
+        Log.d(TAG, "=== USAGE STATS SUMMARY ===")
+        Log.d(TAG, "Total Screen Time: ${formatDuration(totalScreenTime)}")
+        Log.d(TAG, "YouTube Total: ${formatDuration(youtubeTotal)}")
+        Log.d(TAG, "YouTube Study: ${formatDuration(youtubeStudy)}")
+        Log.d(TAG, "YouTube Entertainment: ${formatDuration(youtubeEntertainment)}")
+        Log.d(TAG, "Category Breakdown:")
+        categoryMap.forEach { (category, duration) ->
+            Log.d(TAG, "  $category: ${formatDuration(duration)}")
+        }
+        Log.d(TAG, "Top Apps:")
+        topApps.forEach { (packageName, duration) ->
+            val appName = getAppName(packageName)
+            Log.d(TAG, "  $appName ($packageName): ${formatDuration(duration)}")
+        }
+        Log.d(TAG, "=== END SUMMARY ===")
+        
         return AppUsageStats(
             date = getTodayDateString(),
             totalScreenTime = totalScreenTime,
@@ -192,6 +221,49 @@ class AppUsageManager(
     private fun getTodayDateString(): String {
         val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
         return dateFormat.format(Date())
+    }
+    
+    /**
+     * Get raw usage stats for debugging comparison with Digital Wellbeing
+     */
+    fun getRawUsageStatsForDebugging(): List<UsageStats> {
+        if (!hasUsageStatsPermission()) {
+            Log.w(TAG, "Usage stats permission not granted")
+            return emptyList()
+        }
+        
+        val calendar = Calendar.getInstance()
+        calendar.set(Calendar.HOUR_OF_DAY, 0)
+        calendar.set(Calendar.MINUTE, 0)
+        calendar.set(Calendar.SECOND, 0)
+        calendar.set(Calendar.MILLISECOND, 0)
+        val startTime = calendar.timeInMillis
+        val endTime = System.currentTimeMillis()
+        
+        val usageStats = usageStatsManager.queryUsageStats(
+            UsageStatsManager.INTERVAL_BEST,
+            startTime,
+            endTime
+        ) ?: emptyList()
+        
+        Log.d(TAG, "=== RAW USAGE STATS FOR DEBUGGING ===")
+        Log.d(TAG, "Time range: ${startTime} to ${endTime}")
+        Log.d(TAG, "Total apps found: ${usageStats.size}")
+        
+        var totalRawTime = 0L
+        usageStats.forEach { stats ->
+            if (stats.totalTimeInForeground > 0) {
+                val appName = getAppName(stats.packageName)
+                val duration = stats.totalTimeInForeground
+                totalRawTime += duration
+                Log.d(TAG, "RAW: ${stats.packageName} ($appName) - ${formatDuration(duration)}")
+            }
+        }
+        
+        Log.d(TAG, "Total raw screen time: ${formatDuration(totalRawTime)}")
+        Log.d(TAG, "=== END RAW STATS ===")
+        
+        return usageStats
     }
     
     /**
