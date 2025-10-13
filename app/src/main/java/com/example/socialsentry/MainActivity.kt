@@ -29,6 +29,7 @@ import com.example.socialsentry.domain.SocialSentryNotificationManager
 import com.example.socialsentry.presentation.ui.screen.BlockScrollScreen
 import com.example.socialsentry.presentation.ui.screen.GameDashboardScreen
 import com.example.socialsentry.presentation.ui.screen.SettingsScreen
+import com.example.socialsentry.presentation.ui.screen.AboutDeveloperScreen
 import com.example.socialsentry.ui.theme.SocialSentryTheme
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
@@ -92,7 +93,7 @@ class MainActivity : ComponentActivity() {
                                 onNavigateToSettings = { showSettings = true },
                                 onRequestNotificationPermission = { requestNotificationPermission() }
                             )
-                            2 -> HelloWorldPage(text = "Hello World 2")
+                            2 -> AboutDeveloperScreen()
                         }
                     }
                 }
@@ -109,21 +110,5 @@ class MainActivity : ComponentActivity() {
                 requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
             }
         }
-    }
-}
-
-@Composable
-private fun HelloWorldPage(text: String) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .systemBarsPadding(),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.headlineMedium,
-            textAlign = TextAlign.Center
-        )
     }
 }

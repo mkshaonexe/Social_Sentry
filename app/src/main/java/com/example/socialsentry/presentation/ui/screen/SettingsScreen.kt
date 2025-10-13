@@ -12,6 +12,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -156,6 +157,75 @@ fun SettingsScreen(
         }
         
         // Temporary Unblock section is hidden as requested
+        
+        // Scroll Limiter Feature Toggle
+        item {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp)),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Facebook Scroll Limiter",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Shows a 30-second break popup after 1 minute of scrolling on Facebook",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.width(12.dp))
+                        
+                        Switch(
+                            checked = settings.scrollLimiterEnabled,
+                            onCheckedChange = { enabled ->
+                                viewModel.updateScrollLimiterEnabled(enabled)
+                            },
+                            enabled = isAccessibilityEnabled,
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color(0xFF4CAF50), // Green for enabled
+                                checkedTrackColor = Color(0xFF4CAF50).copy(alpha = 0.5f),
+                                uncheckedThumbColor = Color(0xFF9E9E9E), // Gray for disabled
+                                uncheckedTrackColor = Color(0xFF9E9E9E).copy(alpha = 0.3f),
+                                disabledCheckedThumbColor = Color(0xFF4CAF50).copy(alpha = 0.5f),
+                                disabledCheckedTrackColor = Color(0xFF4CAF50).copy(alpha = 0.3f),
+                                disabledUncheckedThumbColor = Color(0xFF757575),
+                                disabledUncheckedTrackColor = Color(0xFF757575).copy(alpha = 0.3f)
+                            )
+                        )
+                    }
+                    
+                    if (!isAccessibilityEnabled) {
+                        Text(
+                            text = "⚠️ Accessibility service must be enabled",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFFFF9800),
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
+                }
+            }
+        }
         }
     }
 }

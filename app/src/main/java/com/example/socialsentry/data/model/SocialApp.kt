@@ -88,6 +88,8 @@ data class SocialSentrySettings(
     // Epoch millis when the current temporary unblock session started (if active)
     val temporaryUnblockSessionStartEpochMs: Long? = null,
     // ISO-8601 local date (yyyy-MM-dd) when the allowance was last reset
-    val lastAllowanceResetLocalDate: String? = null
+    val lastAllowanceResetLocalDate: String? = null,
+    // Scroll limiter feature for Facebook - shows popup after 1 min of scrolling
+    val scrollLimiterEnabled: Boolean = false
 )
 

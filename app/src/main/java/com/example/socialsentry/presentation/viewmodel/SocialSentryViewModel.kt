@@ -178,6 +178,13 @@ class SocialSentryViewModel(
             manager.rescheduleAll()
         }
     }
+    
+    fun updateScrollLimiterEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            val currentSettings = settings.value
+            dataStore.updateSettings(currentSettings.copy(scrollLimiterEnabled = enabled))
+        }
+    }
 
     // Internal utility to write entire settings snapshot (used by settings UI)
     suspend fun updateSettingsDirect(updated: SocialSentrySettings) {

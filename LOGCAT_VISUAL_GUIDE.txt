@@ -1,0 +1,58 @@
+╔═══════════════════════════════════════════════════════════════╗
+║              ANDROID STUDIO - WHERE TO FIND LOGCAT             ║
+╚═══════════════════════════════════════════════════════════════╝
+
+Your Android Studio window looks like this:
+
+┌─────────────────────────────────────────────────────────────┐
+│  File  Edit  View  Navigate  Code  Analyze  Build  Run     │  ← Menu bar
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  [Your code editor area]                                    │
+│                                                              │
+│                                                              │
+├─────────────────────────────────────────────────────────────┤
+│  Run | Logcat | Build | Terminal | Problems | Event Log   │  ← CLICK "Logcat"
+└─────────────────────────────────────────────────────────────┘
+         ↑
+         │
+    CLICK HERE!
+
+
+INSIDE LOGCAT WINDOW:
+┌─────────────────────────────────────────────────────────────┐
+│  [Device: Emulator] [com.example.socialsentry] [Debug ▼]   │
+│  ┌────────────────────────────────────────────────────────┐ │
+│  │ Search: SocialSentry                            🗑️ 🔧  │ │  ← Type "SocialSentry" here
+│  ├────────────────────────────────────────────────────────┤ │
+│  │ 2025-10-13 12:30:45.123  D/SocialSentry: Message 1     │ │
+│  │ 2025-10-13 12:30:45.456  D/SocialSentry: Message 2     │ │  ← Your logs appear here
+│  │ 2025-10-13 12:30:45.789  D/SocialSentry: Message 3     │ │
+│  └────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+
+WHAT TO DO:
+1. Type "SocialSentry" in the search box to filter only our app's logs
+2. Clear old logs by clicking the 🗑️ trash icon
+3. Open Facebook on emulator and scroll
+4. Watch the logs appear in real-time!
+
+WHAT LOGS YOU SHOULD SEE WHEN SCROLLING FACEBOOK:
+
+✅ Good - Scroll limiter is working:
+   D/SocialSentry: Facebook detected, scroll limiter enabled, tracking...
+   D/SocialSentry: Facebook scroll limiter: ⏱️ Started tracking scroll time
+   V/SocialSentry: Facebook scroll limiter: Duration = 10s
+   V/SocialSentry: Facebook scroll limiter: Duration = 20s
+   D/SocialSentry: Facebook scroll limiter: 20s elapsed
+   V/SocialSentry: Facebook scroll limiter: Duration = 60s
+   D/SocialSentry: Facebook scroll limiter: 🚨 1 minute threshold reached
+
+❌ Bad - Scroll limiter NOT detecting scrolls:
+   D/SocialSentry: Facebook detected but scroll limiter is disabled
+   (No other messages)
+
+OR
+
+   (No logs at all - service might not be running)
+

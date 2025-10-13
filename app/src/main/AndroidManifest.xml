@@ -4,6 +4,7 @@
 
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <application
         android:name=".SocialSentryApplication"
@@ -39,6 +40,13 @@
         <activity
             android:name=".presentation.ui.pushup.PushUpCounterActivity"
             android:exported="false"
+            android:theme="@style/Theme.SocialSentry" />
+
+        <activity
+            android:name=".presentation.ui.overlay.ScrollLimiterOverlayActivity"
+            android:exported="false"
+            android:launchMode="singleInstance"
+            android:excludeFromRecents="true"
             android:theme="@style/Theme.SocialSentry" />
 
         <!-- Accessibility Service -->
