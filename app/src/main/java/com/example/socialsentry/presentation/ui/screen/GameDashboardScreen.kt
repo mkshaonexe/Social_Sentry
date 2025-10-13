@@ -206,7 +206,7 @@ fun PlayerSection(
         
         Spacer(modifier = Modifier.height(16.dp))
         
-        // Player Banner Card (full image when selected)
+        // Player Avatar and Banner Card
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -220,6 +220,8 @@ fun PlayerSection(
             val settingsViewModel = koinViewModel<SocialSentryViewModel>()
             val settings by settingsViewModel.settings.collectAsStateWithLifecycle()
             val bannerUri = settings.gameDashboard.bannerImageUri
+            val avatarUri = settings.gameDashboard.avatarImageUri
+            
             if (bannerUri != null) {
                 AsyncImage(
                     model = bannerUri,
@@ -228,16 +230,28 @@ fun PlayerSection(
                     contentScale = ContentScale.Crop
                 )
             } else {
-                // Minimal placeholder
-                Canvas(modifier = Modifier.fillMaxSize()) {
-                    val centerX = size.width / 2
-                    val centerY = size.height / 2
-                    val radius = size.minDimension / 3
-                    drawCircle(
-                        color = Color(0xFF444444),
-                        radius = radius,
-                        center = androidx.compose.ui.geometry.Offset(centerX, centerY)
+                // Show avatar as profile picture in center
+                if (avatarUri != null) {
+                    AsyncImage(
+                        model = avatarUri,
+                        contentDescription = "Profile Picture",
+                        modifier = Modifier
+                            .size(120.dp)
+                            .clip(RoundedCornerShape(60.dp)),
+                        contentScale = ContentScale.Crop
                     )
+                } else {
+                    // Minimal placeholder
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        val centerX = size.width / 2
+                        val centerY = size.height / 2
+                        val radius = size.minDimension / 3
+                        drawCircle(
+                            color = Color(0xFF444444),
+                            radius = radius,
+                            center = androidx.compose.ui.geometry.Offset(centerX, centerY)
+                        )
+                    }
                 }
             }
         }
