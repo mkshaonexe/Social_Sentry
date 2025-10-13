@@ -25,7 +25,11 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Warning
 import com.example.socialsentry.presentation.ui.components.AnimatedToggleSwitch
+import com.example.socialsentry.presentation.ui.components.PermissionWarningBanner
+import com.example.socialsentry.presentation.ui.components.CompactPermissionWarning
+import com.example.socialsentry.presentation.ui.components.PermissionDetailsDialog
 import com.example.socialsentry.presentation.viewmodel.SocialSentryViewModel
+import com.example.socialsentry.util.PermissionChecker
 import com.example.socialsentry.ui.theme.BrightPink
 import com.example.socialsentry.ui.theme.BrightGreen
 import com.example.socialsentry.ui.theme.DarkGray
@@ -79,11 +83,16 @@ fun BlockScrollScreen(
     var developerPassword by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
     
+    // Check permission status
+    var permissionStatus by remember { mutableStateOf(PermissionChecker.getPermissionStatus(context)) }
+    var showPermissionDialog by remember { mutableStateOf(false) }
+    
     // Check accessibility service status
     LaunchedEffect(lifecycleState) {
         when (lifecycleState) {
             Lifecycle.State.RESUMED -> {
                 isAccessibilityEnabled = context.isAccessibilityServiceEnabled()
+                permissionStatus = PermissionChecker.getPermissionStatus(context)
             }
             else -> {}
         }
@@ -143,6 +152,7 @@ fun BlockScrollScreen(
             .background(DarkGray)
             .systemBarsPadding()
     ) {
+        
         // Settings button in top left
         IconButton(
             onClick = onNavigateToSettings,
@@ -158,21 +168,15 @@ fun BlockScrollScreen(
             )
         }
         
-        // Warning icon when accessibility is not enabled
-        if (!isAccessibilityEnabled) {
-            IconButton(
-                onClick = { showAccessibilityWarningDialog = true },
+        // Warning icon when permissions are missing
+        if (!permissionStatus.hasAllPermissions) {
+            CompactPermissionWarning(
+                permissionStatus = permissionStatus,
+                onClick = { showPermissionDialog = true },
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .padding(16.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.Warning,
-                    contentDescription = "Warning - Accessibility not enabled",
-                    tint = Color(0xFFFF9800), // Orange warning color
-                    modifier = Modifier.size(32.dp)
-                )
-            }
+            )
         }
         
         // Remaining time and Add button in top right
@@ -793,6 +797,14 @@ fun BlockScrollScreen(
                         }
                     }
                 }
+            )
+        }
+        
+        // Permission Details Dialog
+        if (showPermissionDialog) {
+            PermissionDetailsDialog(
+                permissionStatus = permissionStatus,
+                onDismiss = { showPermissionDialog = false }
             )
         }
     }

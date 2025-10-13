@@ -6,8 +6,11 @@ import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import com.example.socialsentry.data.datastore.SocialSentryDataStore
+import com.example.socialsentry.data.datastore.YouTubeTrackingDataStore
 import com.example.socialsentry.domain.SocialSentryNotificationManager
 import com.example.socialsentry.data.model.SocialSentrySettings
+import com.example.socialsentry.data.model.YouTubeSession
+import com.example.socialsentry.data.model.VideoCategory
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -20,6 +23,7 @@ import java.util.TimeZone
 class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
 
     private val dataStore: SocialSentryDataStore by inject()
+    private val youtubeDataStore: YouTubeTrackingDataStore by inject()
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private lateinit var notificationManager: SocialSentryNotificationManager
 
@@ -50,6 +54,10 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
                 Log.d(TAG, "Settings updated: ${settings}")
             }
         }
+        // Initialize YouTube tracking - check if we need to reset daily stats
+        serviceScope.launch {
+            youtubeDataStore.checkAndResetIfNewDay()
+        }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -70,6 +78,24 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
         if (!isRelevantEvent) return
 
         Log.v(TAG, "Processing event from $packageName, type: $eventType")
+        
+        // End YouTube session if user switches away from YouTube
+        if (packageName != "com.google.android.youtube" && currentYouTubeSession != null) {
+            serviceScope.launch {
+                endCurrentYouTubeSession()
+            }
+        }
+        
+        // Update current YouTube session if it exists and we're still on YouTube
+        if (packageName == "com.google.android.youtube" && currentYouTubeSession != null) {
+            val now = System.currentTimeMillis()
+            val sessionDuration = now - (youtubeSessionStartTime ?: now)
+            
+            // Log session progress every 10 seconds
+            if (sessionDuration > 0 && sessionDuration % 10000 < 1000) {
+                Log.d(TAG, "YouTube tracking: Session in progress - '${currentYouTubeSession?.title}' (${sessionDuration / 1000}s)")
+            }
+        }
 
         val currentMinute = getCurrentMinuteOfDay()
 
@@ -123,7 +149,11 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
         when (packageName) {
             "com.instagram.android" -> handleInstagram(root, currentMinute)
             "com.facebook.katana" -> handleFacebook(root, event, currentMinute)
-            "com.google.android.youtube" -> handleYoutube(root, currentMinute)
+            "com.google.android.youtube" -> {
+                handleYoutube(root, currentMinute)
+                // Track YouTube usage for stats (independent of blocking)
+                trackYouTubeUsage(root)
+            }
             "com.zhiliaoapp.musically" -> handleTikTok(currentMinute)
             // Threads currently only uses scroll limiter; show overlay during mandatory break
             "com.instagram.barcelona", "com.instagram.threadsapp" -> handleThreads(currentMinute)
@@ -467,6 +497,16 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
     private var youtubeMandatoryBreakEndTime: Long? = null
     private var instagramMandatoryBreakEndTime: Long? = null
     private var threadsMandatoryBreakEndTime: Long? = null
+    
+    // YouTube usage tracking
+    private var currentYouTubeSession: YouTubeSession? = null
+    private var lastYouTubeTitle: String? = null
+    private var lastYouTubeChannel: String? = null
+    private var youtubeSessionStartTime: Long? = null
+    private val youtubeSessionDebounceMs = 5000L // 5 seconds to avoid quick switches
+    private var lastYouTubeTrackingTime: Long = 0L
+    private val youtubeTrackingCooldownMs = 2000L // 2 second cooldown between tracking calls
+    private var lastVideoDetectionTime: Long = 0L
 
     private fun trackMindfulScroll(packageName: String, event: AccessibilityEvent?) {
         // Only consider scroll events
@@ -784,12 +824,222 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
         extra?.invoke()
     }
 
+    // YouTube Usage Tracking
+    private fun trackYouTubeUsage(root: AccessibilityNodeInfo) {
+        val now = System.currentTimeMillis()
+        
+        // Cooldown to prevent duplicate tracking calls
+        if (now - lastYouTubeTrackingTime < youtubeTrackingCooldownMs) {
+            return
+        }
+        lastYouTubeTrackingTime = now
+        
+        Log.d(TAG, "YouTube tracking: Starting video extraction")
+        
+        serviceScope.launch {
+            try {
+                // Extract video title and channel name from YouTube UI
+                val (title, channel) = extractYouTubeVideoInfo(root)
+                
+                if (title == null) {
+                    Log.v(TAG, "YouTube tracking: No video title detected")
+                    // No video detected, but don't end session immediately - wait a bit
+                    val timeSinceLastVideo = now - lastVideoDetectionTime
+                    if (timeSinceLastVideo > youtubeSessionDebounceMs) {
+                        endCurrentYouTubeSession()
+                    }
+                    return@launch
+                }
+                
+                Log.d(TAG, "YouTube tracking: Video detected - '$title' by $channel")
+                
+                // Update last video detection time
+                lastVideoDetectionTime = now
+                
+                // Check if this is a new video (title changed)
+                if (title != lastYouTubeTitle) {
+                    Log.d(TAG, "YouTube tracking: New video detected (previous: '$lastYouTubeTitle', new: '$title')")
+                    // End previous session
+                    endCurrentYouTubeSession()
+                    
+                    // Start new session
+                    val (category, confidence) = youtubeDataStore.categorizeVideo(title, channel)
+                    
+                    val newSession = YouTubeSession(
+                        title = title,
+                        channelName = channel,
+                        category = category,
+                        startTime = now,
+                        confidence = confidence,
+                        detectedBy = "accessibility"
+                    )
+                    
+                    currentYouTubeSession = newSession
+                    lastYouTubeTitle = title
+                    lastYouTubeChannel = channel
+                    youtubeSessionStartTime = now
+                    
+                    Log.d(TAG, "YouTube tracking: New video started - '$title' by $channel (Category: $category)")
+                } else {
+                    // Same video, just keep the session alive - don't end it
+                    currentYouTubeSession?.let { session ->
+                        Log.v(TAG, "YouTube tracking: Continuing session for '$title'")
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error tracking YouTube usage", e)
+            }
+        }
+    }
+    
+    private fun extractYouTubeVideoInfo(root: AccessibilityNodeInfo): Pair<String?, String?> {
+        var title: String? = null
+        var channel: String? = null
+        
+        try {
+            Log.d(TAG, "YouTube tracking: Extracting video info from accessibility tree")
+            
+            // Method 1: Try to find title using common YouTube view IDs
+            val titleIds = listOf(
+                "com.google.android.youtube:id/title",
+                "com.google.android.youtube:id/video_title",
+                "com.google.android.youtube:id/player_title",
+                "com.google.android.youtube:id/primary_text",
+                "com.google.android.youtube:id/secondary_text"
+            )
+            
+            for (id in titleIds) {
+                val titleNode = root.findAccessibilityNodeInfosByViewId(id).firstOrNull()
+                if (titleNode?.text != null) {
+                    title = titleNode.text.toString()
+                    Log.d(TAG, "YouTube tracking: Found title via ID $id: '$title'")
+                    break
+                }
+            }
+            
+            // Method 2: If not found, search for text nodes that look like titles
+            if (title == null) {
+                title = findYouTubeTitleByText(root)
+                if (title != null) {
+                    Log.d(TAG, "YouTube tracking: Found title via text search: '$title'")
+                }
+            }
+            
+            // Find channel name
+            val channelIds = listOf(
+                "com.google.android.youtube:id/channel_name",
+                "com.google.android.youtube:id/owner_name",
+                "com.google.android.youtube:id/channel"
+            )
+            
+            for (id in channelIds) {
+                val channelNode = root.findAccessibilityNodeInfosByViewId(id).firstOrNull()
+                if (channelNode?.text != null) {
+                    channel = channelNode.text.toString()
+                    Log.d(TAG, "YouTube tracking: Found channel via ID $id: '$channel'")
+                    break
+                }
+            }
+            
+            if (title == null) {
+                Log.w(TAG, "YouTube tracking: No video title found")
+            }
+            
+        } catch (e: Exception) {
+            Log.w(TAG, "Error extracting YouTube video info", e)
+        }
+        
+        return Pair(title, channel)
+    }
+    
+    private fun findYouTubeTitleByText(node: AccessibilityNodeInfo, depth: Int = 0): String? {
+        if (depth > 8) return null // Increased recursion limit
+        
+        // Look for text nodes that are likely video titles
+        val text = node.text?.toString()
+        if (!text.isNullOrBlank() && text.length > 10) { // Reduced minimum length to catch more titles
+            Log.d(TAG, "YouTube tracking: Found text node: '$text' (length: ${text.length})")
+            // Skip common UI elements
+            val skipTexts = listOf(
+                "Subscribe", "Like", "Share", "Download", "Remix", 
+                "Comments", "views", "ago", "Show more", "Show less",
+                "Play next in queue", "Visit advertiser", "Saved to",
+                "Watch later", "Take a Break!", "Play next", "Sponsored",
+                "Install", "FREE", "MyBL", "My Banglalink", "Install",
+                "Install", "Install", "Install", "Install", "Install"
+            )
+            
+            val shouldSkip = skipTexts.any { text.contains(it, ignoreCase = true) }
+            if (!shouldSkip) {
+                // Check if this looks like a real video title (contains study keywords or is long enough)
+                val isStudyContent = text.contains("ফিজিক্স", ignoreCase = true) || 
+                                   text.contains("physics", ignoreCase = true) ||
+                                   text.contains("HSC", ignoreCase = true) ||
+                                   text.contains("পর্ব", ignoreCase = true) ||
+                                   text.contains("ক্লাস", ignoreCase = true) ||
+                                   text.contains("অধ্যায়", ignoreCase = true) ||
+                                   text.length > 30 // Long titles are likely real video titles
+                
+                if (isStudyContent) {
+                    val className = node.className?.toString()?.lowercase() ?: ""
+                    if (className.contains("textview") || className.contains("text")) {
+                        Log.d(TAG, "YouTube tracking: Study video title found: '$text'")
+                        return text
+                    }
+                }
+            }
+        }
+        
+        // Recursively check children
+        for (i in 0 until node.childCount) {
+            node.getChild(i)?.let { child ->
+                val foundTitle = findYouTubeTitleByText(child, depth + 1)
+                if (foundTitle != null) return foundTitle
+            }
+        }
+        
+        return null
+    }
+    
+    private suspend fun endCurrentYouTubeSession() {
+        currentYouTubeSession?.let { session ->
+            val now = System.currentTimeMillis()
+            val duration = now - session.startTime
+            
+            // Only save sessions that are at least 2 seconds long (reduced from 3 seconds)
+            if (duration >= 2000) {
+                val completedSession = session.copy(
+                    endTime = now,
+                    durationMs = duration
+                )
+                
+                youtubeDataStore.addSession(completedSession)
+                Log.d(TAG, "YouTube tracking: Session ended - '${session.title}' (${duration / 1000}s, Category: ${session.category})")
+            } else {
+                Log.v(TAG, "YouTube tracking: Session too short, not saving (${duration / 1000}s)")
+            }
+            
+            currentYouTubeSession = null
+            lastYouTubeTitle = null
+            lastYouTubeChannel = null
+            youtubeSessionStartTime = null
+        }
+    }
+
     override fun onInterrupt() {
         Log.d(TAG, "SocialSentry Accessibility Service interrupted")
+        // End YouTube session on interrupt
+        serviceScope.launch {
+            endCurrentYouTubeSession()
+        }
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        // End YouTube session on service destroy
+        serviceScope.launch {
+            endCurrentYouTubeSession()
+        }
         serviceScope.cancel()
         Log.d(TAG, "SocialSentry Accessibility Service destroyed")
     }

@@ -9,6 +9,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -38,13 +40,24 @@ import org.koin.androidx.compose.koinViewModel
 import coil.compose.AsyncImage
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import com.example.socialsentry.data.datastore.YouTubeTrackingDataStore
+import com.example.socialsentry.data.model.YouTubeStats
+import com.example.socialsentry.data.model.VideoCategory
+import com.example.socialsentry.data.model.YouTubeSession
+import org.koin.compose.koinInject
+import kotlin.math.cos
+import kotlin.math.sin
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 
 @Composable
 fun GameDashboardScreen(
-    viewModel: SocialSentryViewModel = koinViewModel()
+    viewModel: SocialSentryViewModel = koinViewModel(),
+    youtubeDataStore: YouTubeTrackingDataStore = koinInject()
 ) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val dashboard = settings.gameDashboard
+    val youtubeStats by youtubeDataStore.statsFlow.collectAsStateWithLifecycle(initialValue = YouTubeStats())
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     
@@ -92,6 +105,11 @@ fun GameDashboardScreen(
                 AnimatedSection(visible = visible, delay = 200) {
                     SystemSection()
                 }
+                
+                // YouTube Stats Section
+                AnimatedSection(visible = visible, delay = 300) {
+                    YouTubeStatsSection(youtubeStats)
+                }
             }
         } else {
             // Portrait: Show Player Profile prominently
@@ -114,19 +132,17 @@ fun GameDashboardScreen(
                     )
                 }
                 
-                // Quick Stats Summary
+                // YouTube Stats Summary
                 AnimatedSection(visible = visible, delay = 150) {
-                    QuickStatsSection(
+                    YouTubeQuickStatsSection(
                         quote = dashboard.quote,
-                        stats = listOf(
-                            dashboard.statFit,
-                            dashboard.statSoc,
-                            dashboard.statInt,
-                            dashboard.statDis,
-                            dashboard.statFoc,
-                            dashboard.statFin
-                        )
+                        youtubeStats = youtubeStats
                     )
+                }
+                
+                // YouTube Stats Section
+                AnimatedSection(visible = visible, delay = 200) {
+                    YouTubeStatsSection(youtubeStats)
                 }
             }
         }
@@ -534,6 +550,125 @@ fun StatisticsSection(stats: List<Float>) {
 }
 
 @Composable
+fun YouTubeQuickStatsSection(
+    quote: String, 
+    youtubeStats: YouTubeStats,
+    youtubeDataStore: YouTubeTrackingDataStore = koinInject()
+) {
+    var showDetailedTable by remember { mutableStateOf(false) }
+    
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(6.dp, RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color(0xFF1A1A1A))
+            .padding(24.dp)
+    ) {
+        // Quote
+        Text(
+            text = quote,
+            fontSize = 11.sp,
+            color = TextGray,
+            textAlign = TextAlign.Center,
+            letterSpacing = 1.sp,
+            modifier = Modifier.fillMaxWidth()
+        )
+        
+        Spacer(modifier = Modifier.height(32.dp))
+        
+        // YouTube Category Radar Chart - Bigger and more spacious
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(1f)
+                .padding(horizontal = 8.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            YouTubeCategoryRadarChart(youtubeStats)
+        }
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        // Creator credit
+        Text(
+            text = "yt@mkshaon7",
+            fontSize = 11.sp,
+            color = TextGray.copy(alpha = 0.6f),
+            fontWeight = FontWeight.Medium,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
+        )
+        
+        Spacer(modifier = Modifier.height(20.dp))
+        
+        HorizontalDivider(color = TextGray.copy(alpha = 0.2f))
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // See More Button
+        var isPressed by remember { mutableStateOf(false) }
+        val scale by animateFloatAsState(
+            targetValue = if (isPressed) 0.95f else 1f,
+            animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+            label = "button scale"
+        )
+        
+        OutlinedButton(
+            onClick = { showDetailedTable = true },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp)
+                .scale(scale),
+            colors = ButtonDefaults.outlinedButtonColors(
+                containerColor = Color.Transparent,
+                contentColor = BrightPink
+            ),
+            border = androidx.compose.foundation.BorderStroke(1.dp, BrightPink),
+            shape = RoundedCornerShape(8.dp),
+            interactionSource = remember { MutableInteractionSource() }
+                .also { interactionSource ->
+                    LaunchedEffect(interactionSource) {
+                        interactionSource.interactions.collect { interaction ->
+                            when (interaction) {
+                                is androidx.compose.foundation.interaction.PressInteraction.Press -> {
+                                    isPressed = true
+                                }
+                                is androidx.compose.foundation.interaction.PressInteraction.Release,
+                                is androidx.compose.foundation.interaction.PressInteraction.Cancel -> {
+                                    isPressed = false
+                                }
+                            }
+                        }
+                    }
+                }
+        ) {
+            Icon(
+                imageVector = Icons.Default.List,
+                contentDescription = null,
+                tint = BrightPink,
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "See All Videos",
+                fontSize = 13.sp,
+                color = BrightPink,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+    
+    // Detailed Videos Table Dialog
+    if (showDetailedTable) {
+        DetailedVideosTableDialog(
+            youtubeStats = youtubeStats,
+            onDismiss = { showDetailedTable = false }
+        )
+    }
+}
+
+@Composable
 fun QuickStatsSection(quote: String, stats: List<Float>) {
     Column(
         modifier = Modifier
@@ -768,6 +903,948 @@ fun StatItem(
             color = valueColor,
             fontWeight = FontWeight.Bold
         )
+    }
+}
+
+@Composable
+fun YouTubeStatsSection(
+    stats: YouTubeStats,
+    youtubeDataStore: YouTubeTrackingDataStore = koinInject()
+) {
+    var selectedSessionId by remember { mutableStateOf<String?>(null) }
+    var showCategoryDialog by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(6.dp, RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color(0xFF1A1A1A))
+            .padding(24.dp)
+    ) {
+        // Header with icon
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(
+                imageVector = Icons.Default.Info,
+                contentDescription = null,
+                tint = Color(0xFFFF0000), // YouTube red
+                modifier = Modifier.size(24.dp)
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                text = "YouTube Usage Tracker",
+                fontSize = 18.sp,
+                color = White,
+                fontWeight = FontWeight.Bold
+            )
+        }
+        
+        Spacer(modifier = Modifier.height(20.dp))
+        
+        // Total watch time
+        val totalMinutes = (stats.totalWatchTimeMs / 60000).toInt()
+        val hours = totalMinutes / 60
+        val minutes = totalMinutes % 60
+        
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color(0xFF0F0F0F), RoundedCornerShape(12.dp))
+                .padding(16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = "Today's Watch Time",
+                    fontSize = 12.sp,
+                    color = TextGray,
+                    fontWeight = FontWeight.Medium
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.Bottom) {
+                    if (hours > 0) {
+                        Text(
+                            text = "${hours}h ",
+                            fontSize = 32.sp,
+                            color = Color(0xFFFF0000),
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Text(
+                        text = "${minutes}m",
+                        fontSize = 32.sp,
+                        color = Color(0xFFFF0000),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        // Category breakdown with pie chart
+        if (stats.categoryBreakdown.isNotEmpty()) {
+            Text(
+                text = "Category Breakdown",
+                fontSize = 14.sp,
+                color = White,
+                fontWeight = FontWeight.Bold
+            )
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Pie chart
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                CategoryPieChart(stats.categoryBreakdown, stats.totalWatchTimeMs)
+            }
+            
+            Spacer(modifier = Modifier.height(20.dp))
+            
+            // Category legend with percentages
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                stats.categoryBreakdown.entries.sortedByDescending { it.value }.forEach { (category, time) ->
+                    val percentage = if (stats.totalWatchTimeMs > 0) {
+                        ((time.toFloat() / stats.totalWatchTimeMs) * 100).toInt()
+                    } else 0
+                    val categoryMinutes = (time / 60000).toInt()
+                    
+                    CategoryItem(
+                        category = category,
+                        timeMinutes = categoryMinutes,
+                        percentage = percentage
+                    )
+                }
+            }
+        } else {
+            // No data yet
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 32.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "📊",
+                        fontSize = 48.sp
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "No YouTube usage data yet",
+                        fontSize = 14.sp,
+                        color = TextGray,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Watch some videos to see your stats!",
+                        fontSize = 12.sp,
+                        color = TextGray.copy(alpha = 0.7f),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        HorizontalDivider(color = TextGray.copy(alpha = 0.2f))
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Top channels (if available)
+        if (stats.topChannels.isNotEmpty()) {
+            Text(
+                text = "Top Channels",
+                fontSize = 14.sp,
+                color = White,
+                fontWeight = FontWeight.Bold
+            )
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                stats.topChannels.entries.take(5).forEach { (channel, time) ->
+                    val channelMinutes = (time / 60000).toInt()
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = channel,
+                            fontSize = 13.sp,
+                            color = TextGray,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Text(
+                            text = "${channelMinutes}m",
+                            fontSize = 13.sp,
+                            color = BrightPink,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            HorizontalDivider(color = TextGray.copy(alpha = 0.2f))
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+        
+        // Recent videos with category correction
+        if (stats.sessions.isNotEmpty()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Recent Videos",
+                    fontSize = 14.sp,
+                    color = White,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Tap to correct category",
+                    fontSize = 11.sp,
+                    color = TextGray.copy(alpha = 0.6f)
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // Show last 5 completed sessions
+            val recentSessions = stats.sessions
+                .filter { it.endTime != null && it.durationMs >= 5000 }
+                .sortedByDescending { it.startTime }
+                .take(5)
+            
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                recentSessions.forEach { session ->
+                    VideoSessionItem(
+                        session = session,
+                        onClick = {
+                            selectedSessionId = session.id
+                            showCategoryDialog = true
+                        }
+                    )
+                }
+            }
+        }
+    }
+    
+    // Category correction dialog
+    if (showCategoryDialog && selectedSessionId != null) {
+        val session = stats.sessions.find { it.id == selectedSessionId }
+        if (session != null) {
+            CategoryCorrectionDialog(
+                session = session,
+                onCategorySelected = { newCategory ->
+                    // Update the session category
+                    scope.launch {
+                        youtubeDataStore.updateSessionCategory(session.id, newCategory)
+                        youtubeDataStore.saveUserCorrection(session.title, newCategory)
+                    }
+                    showCategoryDialog = false
+                    selectedSessionId = null
+                },
+                onDismiss = {
+                    showCategoryDialog = false
+                    selectedSessionId = null
+                }
+            )
+        }
+    }
+}
+
+@Composable
+fun VideoSessionItem(
+    session: YouTubeSession,
+    onClick: () -> Unit
+) {
+    val (categoryColor, categoryIcon, _) = when (session.category) {
+        VideoCategory.STUDY -> Triple(Color(0xFF4CAF50), "📚", "Study")
+        VideoCategory.ENTERTAINMENT -> Triple(Color(0xFFE91E63), "🎬", "Entertainment")
+        VideoCategory.GAMING -> Triple(Color(0xFF9C27B0), "🎮", "Gaming")
+        VideoCategory.PRODUCTIVE -> Triple(Color(0xFF2196F3), "💼", "Productive")
+        VideoCategory.OTHER -> Triple(Color(0xFF757575), "❓", "Other")
+    }
+    
+    val durationMinutes = (session.durationMs / 60000).toInt()
+    val durationSeconds = ((session.durationMs % 60000) / 1000).toInt()
+    
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color(0xFF0F0F0F))
+            .clickable(onClick = onClick)
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Category icon
+        Text(
+            text = categoryIcon,
+            fontSize = 20.sp
+        )
+        
+        Spacer(modifier = Modifier.width(12.dp))
+        
+        // Video info
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = session.title,
+                fontSize = 13.sp,
+                color = White,
+                maxLines = 2,
+                fontWeight = FontWeight.Medium
+            )
+            
+            Spacer(modifier = Modifier.height(4.dp))
+            
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                session.channelName?.let { channel ->
+                    Text(
+                        text = channel,
+                        fontSize = 11.sp,
+                        color = TextGray.copy(alpha = 0.7f),
+                        maxLines = 1
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "•",
+                        fontSize = 11.sp,
+                        color = TextGray.copy(alpha = 0.5f)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
+                
+                Text(
+                    text = if (durationMinutes > 0) "${durationMinutes}m ${durationSeconds}s" else "${durationSeconds}s",
+                    fontSize = 11.sp,
+                    color = TextGray.copy(alpha = 0.7f)
+                )
+            }
+        }
+        
+        Spacer(modifier = Modifier.width(8.dp))
+        
+        // Category indicator
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .background(categoryColor, RoundedCornerShape(4.dp))
+        )
+    }
+}
+
+@Composable
+fun CategoryCorrectionDialog(
+    session: YouTubeSession,
+    onCategorySelected: (VideoCategory) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Column {
+                Text(
+                    text = "Correct Category",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = session.title,
+                    fontSize = 13.sp,
+                    color = TextGray,
+                    maxLines = 2
+                )
+            }
+        },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = "Select the correct category for this video:",
+                    fontSize = 13.sp,
+                    color = TextGray
+                )
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                // Category options
+                VideoCategory.values().forEach { category ->
+                    val (color, icon, label) = when (category) {
+                        VideoCategory.STUDY -> Triple(Color(0xFF4CAF50), "📚", "Study")
+                        VideoCategory.ENTERTAINMENT -> Triple(Color(0xFFE91E63), "🎬", "Entertainment")
+                        VideoCategory.GAMING -> Triple(Color(0xFF9C27B0), "🎮", "Gaming")
+                        VideoCategory.PRODUCTIVE -> Triple(Color(0xFF2196F3), "💼", "Productive")
+                        VideoCategory.OTHER -> Triple(Color(0xFF757575), "❓", "Other")
+                    }
+                    
+                    val isSelected = category == session.category
+                    
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(
+                                if (isSelected) color.copy(alpha = 0.2f)
+                                else Color(0xFF2A2A2A)
+                            )
+                            .clickable { onCategorySelected(category) }
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = icon,
+                            fontSize = 20.sp
+                        )
+                        
+                        Spacer(modifier = Modifier.width(12.dp))
+                        
+                        Text(
+                            text = label,
+                            fontSize = 14.sp,
+                            color = if (isSelected) color else White,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                            modifier = Modifier.weight(1f)
+                        )
+                        
+                        if (isSelected) {
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = "Selected",
+                                tint = color,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        },
+        containerColor = Color(0xFF1A1A1A),
+        titleContentColor = White,
+        textContentColor = TextGray
+    )
+}
+
+@Composable
+fun CategoryItem(
+    category: VideoCategory,
+    timeMinutes: Int,
+    percentage: Int
+) {
+    val (color, icon, label) = when (category) {
+        VideoCategory.STUDY -> Triple(Color(0xFF4CAF50), "📚", "Study")
+        VideoCategory.ENTERTAINMENT -> Triple(Color(0xFFE91E63), "🎬", "Entertainment")
+        VideoCategory.GAMING -> Triple(Color(0xFF9C27B0), "🎮", "Gaming")
+        VideoCategory.PRODUCTIVE -> Triple(Color(0xFF2196F3), "💼", "Productive")
+        VideoCategory.OTHER -> Triple(Color(0xFF757575), "❓", "Other")
+    }
+    
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Color indicator
+        Box(
+            modifier = Modifier
+                .size(12.dp)
+                .background(color, RoundedCornerShape(2.dp))
+        )
+        
+        Spacer(modifier = Modifier.width(12.dp))
+        
+        Text(
+            text = icon,
+            fontSize = 16.sp
+        )
+        
+        Spacer(modifier = Modifier.width(8.dp))
+        
+        Text(
+            text = label,
+            fontSize = 13.sp,
+            color = White,
+            modifier = Modifier.weight(1f)
+        )
+        
+        Text(
+            text = "${timeMinutes}m",
+            fontSize = 13.sp,
+            color = TextGray,
+            fontWeight = FontWeight.Medium
+        )
+        
+        Spacer(modifier = Modifier.width(12.dp))
+        
+        Text(
+            text = "${percentage}%",
+            fontSize = 13.sp,
+            color = color,
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+
+@Composable
+fun CategoryPieChart(
+    categoryBreakdown: Map<VideoCategory, Long>,
+    totalTime: Long
+) {
+    val categoryColors = mapOf(
+        VideoCategory.STUDY to Color(0xFF4CAF50),
+        VideoCategory.ENTERTAINMENT to Color(0xFFE91E63),
+        VideoCategory.GAMING to Color(0xFF9C27B0),
+        VideoCategory.PRODUCTIVE to Color(0xFF2196F3),
+        VideoCategory.OTHER to Color(0xFF757575)
+    )
+    
+    // Animation for pie chart
+    val infiniteTransition = rememberInfiniteTransition(label = "pie pulse")
+    val scale by infiniteTransition.animateFloat(
+        initialValue = 0.98f,
+        targetValue = 1.02f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pie scale"
+    )
+    
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .scale(scale),
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val canvasSize = size.minDimension
+            val radius = canvasSize / 2.5f
+            val centerX = size.width / 2
+            val centerY = size.height / 2
+            
+            var startAngle = -90f // Start from top
+            
+            categoryBreakdown.forEach { (category, time) ->
+                val sweepAngle = ((time.toFloat() / totalTime) * 360f)
+                val color = categoryColors[category] ?: Color.Gray
+                
+                // Draw pie slice
+                drawArc(
+                    color = color,
+                    startAngle = startAngle,
+                    sweepAngle = sweepAngle,
+                    useCenter = true,
+                    topLeft = androidx.compose.ui.geometry.Offset(
+                        centerX - radius,
+                        centerY - radius
+                    ),
+                    size = androidx.compose.ui.geometry.Size(radius * 2, radius * 2)
+                )
+                
+                // Draw border between slices
+                drawArc(
+                    color = Color(0xFF0D0D0D),
+                    startAngle = startAngle,
+                    sweepAngle = sweepAngle,
+                    useCenter = true,
+                    topLeft = androidx.compose.ui.geometry.Offset(
+                        centerX - radius,
+                        centerY - radius
+                    ),
+                    size = androidx.compose.ui.geometry.Size(radius * 2, radius * 2),
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 3f)
+                )
+                
+                startAngle += sweepAngle
+            }
+            
+            // Draw center circle (donut effect)
+            drawCircle(
+                color = Color(0xFF1A1A1A),
+                radius = radius * 0.5f,
+                center = androidx.compose.ui.geometry.Offset(centerX, centerY)
+            )
+        }
+    }
+}
+
+@Composable
+fun YouTubeCategoryRadarChart(youtubeStats: YouTubeStats) {
+    // Convert YouTube categories to radar chart values
+    val categoryValues = listOf(
+        youtubeStats.categoryBreakdown[VideoCategory.STUDY]?.let { it.toFloat() / 3600000f } ?: 0f, // Convert to hours
+        youtubeStats.categoryBreakdown[VideoCategory.ENTERTAINMENT]?.let { it.toFloat() / 3600000f } ?: 0f,
+        youtubeStats.categoryBreakdown[VideoCategory.GAMING]?.let { it.toFloat() / 3600000f } ?: 0f,
+        youtubeStats.categoryBreakdown[VideoCategory.PRODUCTIVE]?.let { it.toFloat() / 3600000f } ?: 0f,
+        youtubeStats.categoryBreakdown[VideoCategory.OTHER]?.let { it.toFloat() / 3600000f } ?: 0f,
+        0f // 6th axis for future use
+    )
+    
+    // Normalize values to 0-1 range (max 4 hours per category)
+    val normalizedValues = categoryValues.map { (it / 4f).coerceIn(0f, 1f) }
+    
+    // Subtle breathing animation for the radar chart
+    val infiniteTransition = rememberInfiniteTransition(label = "radar pulse")
+    val scale by infiniteTransition.animateFloat(
+        initialValue = 0.98f,
+        targetValue = 1.02f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(3000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "radar scale"
+    )
+    
+    // YouTube Category radar chart
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .scale(scale),
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val centerX = size.width / 2
+            val centerY = size.height / 2
+            val radius = size.minDimension / 2.8f
+            
+            // Draw hexagon radar grid (6 points)
+            val points = 6
+            val angleStep = (2 * Math.PI / points).toFloat()
+            val startAngle = -Math.PI.toFloat() / 2 // Start from top
+            
+            // Draw concentric hexagons (grid) - 5 levels
+            for (level in 1..5) {
+                val currentRadius = radius * level / 5
+                val path = androidx.compose.ui.graphics.Path()
+                
+                for (i in 0 until points) {
+                    val angle = startAngle + angleStep * i
+                    val x = centerX + currentRadius * kotlin.math.cos(angle)
+                    val y = centerY + currentRadius * kotlin.math.sin(angle)
+                    
+                    if (i == 0) {
+                        path.moveTo(x, y)
+                    } else {
+                        path.lineTo(x, y)
+                    }
+                }
+                path.close()
+                
+                drawPath(
+                    path = path,
+                    color = Color(0xFF00BCD4).copy(alpha = 0.2f),
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2f)
+                )
+            }
+            
+            // Draw axis lines from center to each point
+            for (i in 0 until points) {
+                val angle = startAngle + angleStep * i
+                val x = centerX + radius * kotlin.math.cos(angle)
+                val y = centerY + radius * kotlin.math.sin(angle)
+                
+                drawLine(
+                    color = Color(0xFF00BCD4).copy(alpha = 0.25f),
+                    start = androidx.compose.ui.geometry.Offset(centerX, centerY),
+                    end = androidx.compose.ui.geometry.Offset(x, y),
+                    strokeWidth = 2f
+                )
+            }
+            
+            // Draw data polygon (filled) - YouTube categories
+            val dataPath = androidx.compose.ui.graphics.Path()
+            
+            for (i in normalizedValues.indices) {
+                val angle = startAngle + angleStep * i
+                val currentRadius = radius * normalizedValues[i]
+                val x = centerX + currentRadius * kotlin.math.cos(angle)
+                val y = centerY + currentRadius * kotlin.math.sin(angle)
+                
+                if (i == 0) {
+                    dataPath.moveTo(x, y)
+                } else {
+                    dataPath.lineTo(x, y)
+                }
+            }
+            dataPath.close()
+            
+            // Fill with YouTube red gradient effect
+            drawPath(
+                path = dataPath,
+                color = Color(0xFFFF0000).copy(alpha = 0.6f)
+            )
+            
+            // Stroke outline
+            drawPath(
+                path = dataPath,
+                color = Color(0xFFFF0000).copy(alpha = 0.9f),
+                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 3f)
+            )
+            
+            // Draw data points as circles
+            for (i in normalizedValues.indices) {
+                val angle = startAngle + angleStep * i
+                val currentRadius = radius * normalizedValues[i]
+                val x = centerX + currentRadius * kotlin.math.cos(angle)
+                val y = centerY + currentRadius * kotlin.math.sin(angle)
+                
+                // Outer glow circle
+                drawCircle(
+                    color = Color(0xFFFF0000).copy(alpha = 0.3f),
+                    radius = 8f,
+                    center = androidx.compose.ui.geometry.Offset(x, y)
+                )
+                // Inner solid circle
+                drawCircle(
+                    color = Color(0xFFFF0000),
+                    radius = 5f,
+                    center = androidx.compose.ui.geometry.Offset(x, y)
+                )
+            }
+        }
+        
+        // Labels positioned around the hexagon - YouTube categories
+        val labels = listOf("STUDY", "ENT", "GAME", "PROD", "OTHER", "FUTURE")
+        Box(modifier = Modifier.fillMaxSize()) {
+            // Top label (STUDY)
+            Text(
+                text = labels[0],
+                fontSize = 12.sp,
+                color = TextGray,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 0.dp)
+            )
+            
+            // Top-right label (ENT)
+            Text(
+                text = labels[1],
+                fontSize = 12.sp,
+                color = TextGray,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(end = 12.dp, top = 32.dp)
+            )
+            
+            // Bottom-right label (GAME)
+            Text(
+                text = labels[2],
+                fontSize = 12.sp,
+                color = TextGray,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 12.dp, bottom = 32.dp)
+            )
+            
+            // Bottom label (PROD)
+            Text(
+                text = labels[3],
+                fontSize = 12.sp,
+                color = TextGray,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 0.dp)
+            )
+            
+            // Bottom-left label (OTHER)
+            Text(
+                text = labels[4],
+                fontSize = 12.sp,
+                color = TextGray,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(start = 12.dp, bottom = 32.dp)
+            )
+            
+            // Top-left label (FUTURE)
+            Text(
+                text = labels[5],
+                fontSize = 12.sp,
+                color = TextGray,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(start = 12.dp, top = 32.dp)
+            )
+        }
+    }
+}
+
+@Composable
+fun DetailedVideosTableDialog(
+    youtubeStats: YouTubeStats,
+    onDismiss: () -> Unit
+) {
+    val completedSessions = youtubeStats.sessions
+        .filter { it.endTime != null && it.durationMs >= 5000 }
+        .sortedByDescending { it.startTime }
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.List,
+                    contentDescription = null,
+                    tint = BrightPink,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "All Watched Videos",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(400.dp)
+            ) {
+                // Header row
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFF2A2A2A), RoundedCornerShape(8.dp))
+                        .padding(12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Video Title",
+                        fontSize = 12.sp,
+                        color = BrightPink,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(2f)
+                    )
+                    Text(
+                        text = "Duration",
+                        fontSize = 12.sp,
+                        color = BrightPink,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        text = "Category",
+                        fontSize = 12.sp,
+                        color = BrightPink,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                // Videos list
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    items(completedSessions) { session ->
+                        DetailedVideoRow(session = session)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close")
+            }
+        },
+        containerColor = Color(0xFF1A1A1A),
+        titleContentColor = White,
+        textContentColor = TextGray
+    )
+}
+
+@Composable
+fun DetailedVideoRow(session: YouTubeSession) {
+    val (categoryColor, categoryIcon, categoryLabel) = when (session.category) {
+        VideoCategory.STUDY -> Triple(Color(0xFF4CAF50), "📚", "Study")
+        VideoCategory.ENTERTAINMENT -> Triple(Color(0xFFE91E63), "🎬", "Entertainment")
+        VideoCategory.GAMING -> Triple(Color(0xFF9C27B0), "🎮", "Gaming")
+        VideoCategory.PRODUCTIVE -> Triple(Color(0xFF2196F3), "💼", "Productive")
+        VideoCategory.OTHER -> Triple(Color(0xFF757575), "❓", "Other")
+    }
+    
+    val durationMinutes = (session.durationMs / 60000).toInt()
+    val durationSeconds = ((session.durationMs % 60000) / 1000).toInt()
+    val durationText = if (durationMinutes > 0) "${durationMinutes}m ${durationSeconds}s" else "${durationSeconds}s"
+    
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color(0xFF0F0F0F), RoundedCornerShape(6.dp))
+            .padding(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Video title
+        Text(
+            text = session.title,
+            fontSize = 11.sp,
+            color = White,
+            maxLines = 2,
+            modifier = Modifier.weight(2f)
+        )
+        
+        Spacer(modifier = Modifier.width(8.dp))
+        
+        // Duration
+        Text(
+            text = durationText,
+            fontSize = 11.sp,
+            color = TextGray,
+            modifier = Modifier.weight(1f)
+        )
+        
+        Spacer(modifier = Modifier.width(8.dp))
+        
+        // Category
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.weight(1f)
+        ) {
+            Text(
+                text = categoryIcon,
+                fontSize = 12.sp
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = categoryLabel,
+                fontSize = 10.sp,
+                color = categoryColor,
+                fontWeight = FontWeight.Medium
+            )
+        }
     }
 }
 
