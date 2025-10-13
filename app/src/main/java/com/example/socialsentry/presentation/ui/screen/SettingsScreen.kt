@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -57,6 +58,7 @@ fun SettingsScreen(
     var isAccessibilityEnabled by remember { mutableStateOf(false) }
     var isManagedAppsExpanded by remember { mutableStateOf(false) }
     var isScrollLimiterExpanded by remember { mutableStateOf(false) }
+    var showAccessibilityPanel by remember { mutableStateOf(false) }
     
     // Check accessibility service status
     LaunchedEffect(lifecycleState) {
@@ -95,16 +97,42 @@ fun SettingsScreen(
                 modifier = Modifier.size(28.dp)
             )
         }
+
+        // Top-right warning/close icon to reveal/hide Accessibility section when disabled
+        if (!isAccessibilityEnabled) {
+            IconButton(
+                onClick = { showAccessibilityPanel = !showAccessibilityPanel },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(16.dp)
+            ) {
+                Icon(
+                    imageVector = if (showAccessibilityPanel) Icons.Default.KeyboardArrowUp else Icons.Rounded.Warning,
+                    contentDescription = if (showAccessibilityPanel) "Hide accessibility info" else "Accessibility not enabled",
+                    tint = Color(0xFFFF9800),
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+        }
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(top = 80.dp, start = 16.dp, end = 16.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-        item {
-            AccessibilityServiceCard(
-                isServiceEnabled = isAccessibilityEnabled
-            )
+        // Accessibility Service panel shown on demand via the top-right icon
+        if (showAccessibilityPanel && !isAccessibilityEnabled) {
+            item {
+                AnimatedVisibility(
+                    visible = true,
+                    enter = fadeIn() + expandVertically(),
+                    exit = fadeOut() + shrinkVertically()
+                ) {
+                    AccessibilityServiceCard(
+                        isServiceEnabled = isAccessibilityEnabled
+                    )
+                }
+            }
         }
         
         item {
