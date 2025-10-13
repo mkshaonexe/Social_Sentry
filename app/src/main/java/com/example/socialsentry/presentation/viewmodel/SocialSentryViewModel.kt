@@ -185,6 +185,27 @@ class SocialSentryViewModel(
             dataStore.updateSettings(currentSettings.copy(scrollLimiterEnabled = enabled))
         }
     }
+    
+    fun updateScrollLimiterYoutubeEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            val currentSettings = settings.value
+            dataStore.updateSettings(currentSettings.copy(scrollLimiterYoutubeEnabled = enabled))
+        }
+    }
+    
+    fun updateScrollLimiterFacebookEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            val currentSettings = settings.value
+            dataStore.updateSettings(currentSettings.copy(scrollLimiterFacebookEnabled = enabled))
+        }
+    }
+    
+    fun updateScrollLimiterInstagramEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            val currentSettings = settings.value
+            dataStore.updateSettings(currentSettings.copy(scrollLimiterInstagramEnabled = enabled))
+        }
+    }
 
     // Internal utility to write entire settings snapshot (used by settings UI)
     suspend fun updateSettingsDirect(updated: SocialSentrySettings) {

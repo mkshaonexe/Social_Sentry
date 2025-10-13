@@ -56,6 +56,7 @@ fun SettingsScreen(
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     var isAccessibilityEnabled by remember { mutableStateOf(false) }
     var isManagedAppsExpanded by remember { mutableStateOf(false) }
+    var isScrollLimiterExpanded by remember { mutableStateOf(false) }
     
     // Check accessibility service status
     LaunchedEffect(lifecycleState) {
@@ -107,7 +108,7 @@ fun SettingsScreen(
         }
         
         item {
-            // Managed Apps Header - Clickable to expand/collapse
+            // Reels Block Header - Clickable to expand/collapse
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -125,7 +126,7 @@ fun SettingsScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Managed Apps",
+                        text = "Reels Block",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onBackground
@@ -158,12 +159,13 @@ fun SettingsScreen(
         
         // Temporary Unblock section is hidden as requested
         
-        // Scroll Limiter Feature Toggle
+        // Scroll Limiter Header - Clickable to expand/collapse
         item {
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp)),
+                    .clip(RoundedCornerShape(16.dp))
+                    .clickable { isScrollLimiterExpanded = !isScrollLimiterExpanded },
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surface
                 )
@@ -171,8 +173,7 @@ fun SettingsScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                        .padding(20.dp)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -181,37 +182,26 @@ fun SettingsScreen(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Facebook Scroll Limiter",
-                                style = MaterialTheme.typography.titleMedium,
+                                text = "Scroll Limiter",
+                                style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onBackground
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "Shows a 30-second break popup after 1 minute of scrolling on Facebook",
+                                text = "Shows a 30-second break popup after 1 minute of scrolling",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
                             )
                         }
                         
-                        Spacer(modifier = Modifier.width(12.dp))
-                        
-                        Switch(
-                            checked = settings.scrollLimiterEnabled,
-                            onCheckedChange = { enabled ->
-                                viewModel.updateScrollLimiterEnabled(enabled)
-                            },
-                            enabled = isAccessibilityEnabled,
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = Color(0xFF4CAF50), // Green for enabled
-                                checkedTrackColor = Color(0xFF4CAF50).copy(alpha = 0.5f),
-                                uncheckedThumbColor = Color(0xFF9E9E9E), // Gray for disabled
-                                uncheckedTrackColor = Color(0xFF9E9E9E).copy(alpha = 0.3f),
-                                disabledCheckedThumbColor = Color(0xFF4CAF50).copy(alpha = 0.5f),
-                                disabledCheckedTrackColor = Color(0xFF4CAF50).copy(alpha = 0.3f),
-                                disabledUncheckedThumbColor = Color(0xFF757575),
-                                disabledUncheckedTrackColor = Color(0xFF757575).copy(alpha = 0.3f)
-                            )
+                        Icon(
+                            imageVector = if (isScrollLimiterExpanded) 
+                                Icons.Default.KeyboardArrowUp 
+                            else 
+                                Icons.Default.KeyboardArrowDown,
+                            contentDescription = if (isScrollLimiterExpanded) "Collapse" else "Expand",
+                            tint = MaterialTheme.colorScheme.onBackground
                         )
                     }
                     
@@ -220,7 +210,175 @@ fun SettingsScreen(
                             text = "⚠️ Accessibility service must be enabled",
                             style = MaterialTheme.typography.bodySmall,
                             color = Color(0xFFFF9800),
-                            modifier = Modifier.padding(top = 4.dp)
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+                    }
+                }
+            }
+        }
+        
+        // Expandable Scroll Limiter Apps List
+        if (isScrollLimiterExpanded) {
+            // YouTube Scroll Limiter
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp)),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(20.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "📺 YouTube",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Limit scrolling time",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.width(12.dp))
+                        
+                        Switch(
+                            checked = settings.scrollLimiterYoutubeEnabled,
+                            onCheckedChange = { enabled ->
+                                viewModel.updateScrollLimiterYoutubeEnabled(enabled)
+                            },
+                            enabled = isAccessibilityEnabled,
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color(0xFF4CAF50),
+                                checkedTrackColor = Color(0xFF4CAF50).copy(alpha = 0.5f),
+                                uncheckedThumbColor = Color(0xFF9E9E9E),
+                                uncheckedTrackColor = Color(0xFF9E9E9E).copy(alpha = 0.3f),
+                                disabledCheckedThumbColor = Color(0xFF4CAF50).copy(alpha = 0.5f),
+                                disabledCheckedTrackColor = Color(0xFF4CAF50).copy(alpha = 0.3f),
+                                disabledUncheckedThumbColor = Color(0xFF757575),
+                                disabledUncheckedTrackColor = Color(0xFF757575).copy(alpha = 0.3f)
+                            )
+                        )
+                    }
+                }
+            }
+            
+            // Facebook Scroll Limiter
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp)),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(20.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "📘 Facebook",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Limit scrolling time",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.width(12.dp))
+                        
+                        Switch(
+                            checked = settings.scrollLimiterFacebookEnabled,
+                            onCheckedChange = { enabled ->
+                                viewModel.updateScrollLimiterFacebookEnabled(enabled)
+                            },
+                            enabled = isAccessibilityEnabled,
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color(0xFF4CAF50),
+                                checkedTrackColor = Color(0xFF4CAF50).copy(alpha = 0.5f),
+                                uncheckedThumbColor = Color(0xFF9E9E9E),
+                                uncheckedTrackColor = Color(0xFF9E9E9E).copy(alpha = 0.3f),
+                                disabledCheckedThumbColor = Color(0xFF4CAF50).copy(alpha = 0.5f),
+                                disabledCheckedTrackColor = Color(0xFF4CAF50).copy(alpha = 0.3f),
+                                disabledUncheckedThumbColor = Color(0xFF757575),
+                                disabledUncheckedTrackColor = Color(0xFF757575).copy(alpha = 0.3f)
+                            )
+                        )
+                    }
+                }
+            }
+            
+            // Instagram Scroll Limiter
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp)),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(20.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "📷 Instagram",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Limit scrolling time",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.width(12.dp))
+                        
+                        Switch(
+                            checked = settings.scrollLimiterInstagramEnabled,
+                            onCheckedChange = { enabled ->
+                                viewModel.updateScrollLimiterInstagramEnabled(enabled)
+                            },
+                            enabled = isAccessibilityEnabled,
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color(0xFF4CAF50),
+                                checkedTrackColor = Color(0xFF4CAF50).copy(alpha = 0.5f),
+                                uncheckedThumbColor = Color(0xFF9E9E9E),
+                                uncheckedTrackColor = Color(0xFF9E9E9E).copy(alpha = 0.3f),
+                                disabledCheckedThumbColor = Color(0xFF4CAF50).copy(alpha = 0.5f),
+                                disabledCheckedTrackColor = Color(0xFF4CAF50).copy(alpha = 0.3f),
+                                disabledUncheckedThumbColor = Color(0xFF757575),
+                                disabledUncheckedTrackColor = Color(0xFF757575).copy(alpha = 0.3f)
+                            )
                         )
                     }
                 }

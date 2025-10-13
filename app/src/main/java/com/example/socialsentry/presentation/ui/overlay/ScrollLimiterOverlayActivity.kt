@@ -31,6 +31,7 @@ class ScrollLimiterOverlayActivity : ComponentActivity() {
     private var countDownTimer: CountDownTimer? = null
     private var remainingSeconds = mutableStateOf(30)
     private var canClose = mutableStateOf(false)
+    private var appName = mutableStateOf("Social Media")
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -43,7 +44,9 @@ class ScrollLimiterOverlayActivity : ComponentActivity() {
             WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
         )
         
-        // Get remaining time from intent (default to 30 if not provided)
+        // Get app name and remaining time from intent
+        val appNameFromIntent = intent.getStringExtra("APP_NAME") ?: "Social Media"
+        appName.value = appNameFromIntent
         val initialSeconds = intent.getIntExtra("REMAINING_SECONDS", 30)
         remainingSeconds.value = initialSeconds
         
@@ -53,11 +56,12 @@ class ScrollLimiterOverlayActivity : ComponentActivity() {
         setContent {
             SocialSentryTheme {
                 ScrollLimiterOverlay(
+                    appName = appName.value,
                     remainingSeconds = remainingSeconds.value,
                     canClose = canClose.value,
                     onClose = { 
                         // User can always close the popup
-                        // But Facebook will remain blocked until break ends
+                        // But app will remain blocked until break ends
                         finish()
                     }
                 )
@@ -96,6 +100,7 @@ class ScrollLimiterOverlayActivity : ComponentActivity() {
 
 @Composable
 fun ScrollLimiterOverlay(
+    appName: String,
     remainingSeconds: Int,
     canClose: Boolean,
     onClose: () -> Unit
@@ -160,7 +165,7 @@ fun ScrollLimiterOverlay(
             
             // Message
             Text(
-                text = "You've been scrolling for over 1 minute.\nLet's give your mind a rest.",
+                text = "You've been scrolling $appName for over 1 minute.\nLet's give your mind a rest.",
                 fontSize = 18.sp,
                 color = Color.White.copy(alpha = 0.8f),
                 textAlign = TextAlign.Center,

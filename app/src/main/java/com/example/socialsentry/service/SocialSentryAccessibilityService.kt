@@ -33,6 +33,8 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
     private val facebookDebounceMs = 1200L
     private var lastReelsCheckTime = 0L
     private val reelsCheckIntervalMs = 600L
+    private var lastFacebookRedirectTime = 0L
+    private val facebookPostRedirectCooldownMs = 3000L // 3 seconds cooldown after redirect
 
     companion object {
         private const val TAG = "SocialSentry"
@@ -76,13 +78,31 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
             trackMindfulScroll(packageName, event)
         }
         
-        // Scroll limiter for Facebook
-        if (packageName == "com.facebook.katana") {
-            if (settings.scrollLimiterEnabled) {
-                Log.d(TAG, "Facebook detected, scroll limiter enabled, event type: ${event.eventType}")
-                trackFacebookScrollLimiter(event)
-            } else {
-                Log.v(TAG, "Facebook detected but scroll limiter is disabled")
+        // Scroll limiter tracking for individual apps
+        when (packageName) {
+            "com.facebook.katana" -> {
+                if (settings.scrollLimiterFacebookEnabled) {
+                    Log.d(TAG, "Facebook detected, scroll limiter enabled, event type: ${event.eventType}")
+                    trackScrollLimiter(event, "Facebook")
+                } else {
+                    Log.v(TAG, "Facebook detected but scroll limiter is disabled")
+                }
+            }
+            "com.google.android.youtube" -> {
+                if (settings.scrollLimiterYoutubeEnabled) {
+                    Log.d(TAG, "YouTube detected, scroll limiter enabled, event type: ${event.eventType}")
+                    trackScrollLimiter(event, "YouTube")
+                } else {
+                    Log.v(TAG, "YouTube detected but scroll limiter is disabled")
+                }
+            }
+            "com.instagram.android" -> {
+                if (settings.scrollLimiterInstagramEnabled) {
+                    Log.d(TAG, "Instagram detected, scroll limiter enabled, event type: ${event.eventType}")
+                    trackScrollLimiter(event, "Instagram")
+                } else {
+                    Log.v(TAG, "Instagram detected but scroll limiter is disabled")
+                }
             }
         }
 
@@ -174,41 +194,47 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
 
     private fun handleFacebook(root: AccessibilityNodeInfo, event: AccessibilityEvent?, currentMinute: Int) {
         val now = System.currentTimeMillis()
-        
-        // PRIORITY 1: Check if we're in mandatory 30-second break from scroll limiter
-        val breakEndTime = mandatoryBreakEndTime
-        if (breakEndTime != null && now < breakEndTime) {
-            val remainingSeconds = ((breakEndTime - now) / 1000).toInt()
-            Log.d(TAG, "Facebook BLOCKED - Mandatory break active (${remainingSeconds}s remaining) - Showing popup")
-            
-            // Show the overlay popup again if user tries to access Facebook during break
-            showScrollLimiterOverlay()
-            return
-        }
-        
-        // PRIORITY 2: Regular Facebook blocking (Reels/Stories/Watch)
         val app = settings.facebook
-        if (!app.isBlocked || !isWithinTimeRange(app.blockTimeStart, app.blockTimeEnd, currentMinute)) {
-            return
-        }
-
-        // Enhanced Facebook detection with periodic checking
-        val shouldPeriodicCheck = (now - lastReelsCheckTime) > reelsCheckIntervalMs
         
-        if (shouldPeriodicCheck) {
-            lastReelsCheckTime = now
-            Log.v(TAG, "Performing periodic Facebook content check")
-        }
-
-        if (detectFacebookBlockableContent(root, event)) {
-            if (now - lastFacebookBlockTime < facebookDebounceMs) {
-                Log.v(TAG, "Facebook blocking debounced")
+        // PRIORITY 1: Reels/Stories/Watch blocking - should ALWAYS work when enabled
+        // This runs independently of scroll limiter state
+        if (app.isBlocked && isWithinTimeRange(app.blockTimeStart, app.blockTimeEnd, currentMinute)) {
+            // Skip detection if we're in post-redirect cooldown to prevent reload loop
+            if (now - lastFacebookRedirectTime < facebookPostRedirectCooldownMs) {
+                Log.v(TAG, "Facebook: In post-redirect cooldown, skipping detection")
                 return
             }
             
-            Log.d(TAG, "Facebook blocked content detected - redirecting")
-            lastFacebookBlockTime = now
-            redirectToFacebookHome(root)
+            // Enhanced Facebook detection with periodic checking
+            val shouldPeriodicCheck = (now - lastReelsCheckTime) > reelsCheckIntervalMs
+            
+            if (shouldPeriodicCheck) {
+                lastReelsCheckTime = now
+                Log.v(TAG, "Performing periodic Facebook content check")
+            }
+
+            if (detectFacebookBlockableContent(root, event)) {
+                if (now - lastFacebookBlockTime < facebookDebounceMs) {
+                    Log.v(TAG, "Facebook blocking debounced")
+                } else {
+                    Log.d(TAG, "Facebook blocked content detected - redirecting")
+                    lastFacebookBlockTime = now
+                    lastFacebookRedirectTime = now
+                    redirectToFacebookHome(root)
+                }
+            }
+        }
+        
+        // PRIORITY 2: Scroll limiter mandatory break overlay
+        // This is separate from content blocking - just shows the overlay
+        val breakEndTime = facebookMandatoryBreakEndTime
+        if (breakEndTime != null && now < breakEndTime) {
+            val remainingSeconds = ((breakEndTime - now) / 1000).toInt()
+            Log.d(TAG, "Facebook scroll limiter: Mandatory break active (${remainingSeconds}s remaining)")
+            
+            // Show the overlay popup if user tries to use Facebook during break
+            // The reels blocking above will still redirect reels to home
+            showScrollLimiterOverlay("Facebook", remainingSeconds)
         }
     }
 
@@ -222,33 +248,56 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
 
         if (!reelsEnabled && !storiesEnabled && !watchEnabled) return false
 
-        // Check if user clicked on blocked content
-        event?.source?.let { clickedNode ->
-            if (isBlockedFacebookElement(clickedNode)) {
-                Log.d(TAG, "User clicked on blocked Facebook element")
-                return true
+        // PRIORITY 1: Check if currently in blocked content view (most reliable)
+        if (isInFacebookBlockedView(root)) {
+            Log.d(TAG, "Facebook: Currently in blocked view")
+            return true
+        }
+
+        // PRIORITY 2: Check if user clicked on blocked content (only for navigation to blocked content)
+        // This is now more specific and won't trigger on normal feed posts
+        if (event?.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED) {
+            event.source?.let { clickedNode ->
+                if (isBlockedFacebookElement(clickedNode)) {
+                    Log.d(TAG, "User clicked on blocked Facebook element (tab/button)")
+                    return true
+                }
             }
         }
 
-        // Check if currently in blocked content view
-        return isInFacebookBlockedView(root)
+        return false
     }
 
     private fun isBlockedFacebookElement(node: AccessibilityNodeInfo): Boolean {
         val text = node.text?.toString()?.lowercase() ?: ""
         val description = node.contentDescription?.toString()?.lowercase() ?: ""
-        val className = node.className?.toString()?.lowercase() ?: ""
         val viewId = node.viewIdResourceName?.lowercase() ?: ""
         
-        val combined = "$text $description $className $viewId"
+        // Only check for SPECIFIC Reels/Stories/Watch identifiers
+        // Do NOT use generic keywords like "like", "comment", "share" as they appear on normal posts
+        val combined = "$text $description $viewId"
         
-        val blockedKeywords = listOf(
-            "reels", "stories", "watch", "video", "reel", "story",
-            "for you", "explore", "short video", "vertical video",
-            "like", "comment", "share", "save", "follow"
+        // More specific keywords that indicate ONLY Reels/Stories/Watch, not normal feed
+        val specificBlockedKeywords = listOf(
+            "reels tab", "stories tab", "watch tab",
+            "reels button", "stories button", "watch button",
+            "open reels", "view reels", "view stories",
+            "for you tab" // Reels-specific
         )
         
-        return blockedKeywords.any { keyword ->
+        // Check view IDs for specific blocked content containers
+        val blockedViewIdKeywords = listOf(
+            "reels_viewer", "stories_viewer", "watch_fragment",
+            "reels_tab", "stories_tab", "watch_tab"
+        )
+        
+        // First check specific view IDs
+        if (blockedViewIdKeywords.any { viewId.contains(it) }) {
+            return true
+        }
+        
+        // Then check specific text/description
+        return specificBlockedKeywords.any { keyword ->
             combined.contains(keyword)
         }
     }
@@ -283,7 +332,28 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
     }
 
     private fun redirectToFacebookHome(root: AccessibilityNodeInfo) {
-        // Try to find navigation bar
+        Log.d(TAG, "Facebook: Attempting to redirect from blocked content")
+        
+        // Method 1: Try pressing back button - most reliable for exiting Reels without reload
+        try {
+            performGlobalAction(GLOBAL_ACTION_BACK)
+            Log.d(TAG, "Facebook: Back button pressed to exit Reels")
+            
+            // Give a small delay to allow navigation to complete
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                // If still in Reels after first back, press back again
+                val currentRoot = rootInActiveWindow
+                if (currentRoot != null && isInFacebookBlockedView(currentRoot)) {
+                    performGlobalAction(GLOBAL_ACTION_BACK)
+                    Log.d(TAG, "Facebook: Second back button pressed")
+                }
+            }, 500)
+            return
+        } catch (e: Exception) {
+            Log.e(TAG, "Facebook: Failed to press back button", e)
+        }
+        
+        // Method 2: If back button fails, try to find home tab in navigation bar
         val navBarIds = listOf(
             "com.facebook.katana:id/tab_bar",
             "com.facebook.katana:id/bottom_navigation",
@@ -295,16 +365,18 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
             if (navBar != null && navBar.childCount > 0) {
                 val homeTab = navBar.getChild(0) // Usually first tab is home
                 if (homeTab != null && homeTab.isClickable) {
-                    safePerformAction(homeTab) {
+                    try {
                         homeTab.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                        Log.d(TAG, "Facebook: Home tab clicked")
+                        return
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Facebook: Failed to click home tab", e)
                     }
-                    return
                 }
             }
         }
         
-        // Fallback to back button
-        performGlobalAction(GLOBAL_ACTION_BACK)
+        Log.w(TAG, "Facebook: All redirection methods failed")
     }
 
     // Mindful scroll detection (Instagram/Facebook normal feed)
@@ -312,16 +384,37 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
     private var mindfulLastPackage: String? = null
     private var mindfulNotificationShownForSession = false
     
-    // Scroll limiter tracking for Facebook
+    // Scroll limiter tracking - now supports multiple apps
+    // Facebook scroll tracking
     private var facebookScrollStartTime: Long? = null
     private var lastFacebookScrollTime: Long? = null
     private var facebookScrollLimiterShown = false
-    private var lastScrollLimiterTriggerTime: Long = 0L
-    private var lastProgressNotificationSecond = 0
+    private var lastFacebookScrollLimiterTriggerTime: Long = 0L
+    private var lastFacebookProgressNotificationSecond = 0
+    
+    // YouTube scroll tracking
+    private var youtubeScrollStartTime: Long? = null
+    private var lastYoutubeScrollTime: Long? = null
+    private var youtubeScrollLimiterShown = false
+    private var lastYoutubeScrollLimiterTriggerTime: Long = 0L
+    private var lastYoutubeProgressNotificationSecond = 0
+    
+    // Instagram scroll tracking
+    private var instagramScrollStartTime: Long? = null
+    private var lastInstagramScrollTime: Long? = null
+    private var instagramScrollLimiterShown = false
+    private var lastInstagramScrollLimiterTriggerTime: Long = 0L
+    private var lastInstagramProgressNotificationSecond = 0
+    
+    // Common scroll limiter configuration
     private val scrollLimiterCooldownMs = 10000L // 10 seconds cooldown after mandatory break ends
     private val scrollInactivityResetMs = 8000L // Reset if no interaction for 8 seconds
     private val mandatoryBreakDurationMs = 30000L // 30 seconds mandatory break
-    private var mandatoryBreakEndTime: Long? = null // When the mandatory 30-second break ends
+    
+    // Mandatory break end times - one per app
+    private var facebookMandatoryBreakEndTime: Long? = null
+    private var youtubeMandatoryBreakEndTime: Long? = null
+    private var instagramMandatoryBreakEndTime: Long? = null
 
     private fun trackMindfulScroll(packageName: String, event: AccessibilityEvent?) {
         // Only consider scroll events
@@ -355,8 +448,8 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
         }
     }
     
-    private fun trackFacebookScrollLimiter(event: AccessibilityEvent?) {
-        // Track multiple event types as Facebook doesn't always send TYPE_VIEW_SCROLLED
+    private fun trackScrollLimiter(event: AccessibilityEvent?, appName: String) {
+        // Track multiple event types as apps don't always send TYPE_VIEW_SCROLLED
         // Accept: TYPE_VIEW_SCROLLED (4096), TYPE_WINDOW_STATE_CHANGED (32), 
         // TYPE_VIEW_CLICKED (1), TYPE_WINDOW_CONTENT_CHANGED (2048)
         val eventType = event?.eventType ?: return
@@ -369,56 +462,61 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
         }
         
         if (!isScrollOrInteraction) {
-            Log.v(TAG, "Facebook scroll limiter: Event type $eventType not tracked, ignoring")
+            Log.v(TAG, "$appName scroll limiter: Event type $eventType not tracked, ignoring")
             return
         }
         
-        Log.d(TAG, "Facebook scroll limiter: ✓ User interaction detected (event type: $eventType)!")
+        Log.d(TAG, "$appName scroll limiter: ✓ User interaction detected (event type: $eventType)!")
         
         val now = System.currentTimeMillis()
         
+        // Get app-specific variables based on app name
+        val (scrollStartTime, lastScrollTime, scrollLimiterShown, lastTriggerTime, lastProgressSecond, breakEndTime) = when (appName) {
+            "Facebook" -> Tuple6(facebookScrollStartTime, lastFacebookScrollTime, facebookScrollLimiterShown, lastFacebookScrollLimiterTriggerTime, lastFacebookProgressNotificationSecond, facebookMandatoryBreakEndTime)
+            "YouTube" -> Tuple6(youtubeScrollStartTime, lastYoutubeScrollTime, youtubeScrollLimiterShown, lastYoutubeScrollLimiterTriggerTime, lastYoutubeProgressNotificationSecond, youtubeMandatoryBreakEndTime)
+            "Instagram" -> Tuple6(instagramScrollStartTime, lastInstagramScrollTime, instagramScrollLimiterShown, lastInstagramScrollLimiterTriggerTime, lastInstagramProgressNotificationSecond, instagramMandatoryBreakEndTime)
+            else -> return
+        }
+        
         // Check if we're in mandatory 30-second break - if so, don't track, just let blocking happen
-        val breakEndTime = mandatoryBreakEndTime
         if (breakEndTime != null && now < breakEndTime) {
             val remainingSeconds = ((breakEndTime - now) / 1000).toInt()
-            Log.v(TAG, "Facebook scroll limiter: In mandatory break (${remainingSeconds}s remaining)")
+            Log.v(TAG, "$appName scroll limiter: In mandatory break (${remainingSeconds}s remaining)")
             return
         } else if (breakEndTime != null && now >= breakEndTime) {
             // Break ended, clear it
-            mandatoryBreakEndTime = null
-            Log.d(TAG, "Facebook scroll limiter: Mandatory break ended, resetting")
+            setAppBreakEndTime(appName, null)
+            Log.d(TAG, "$appName scroll limiter: Mandatory break ended, resetting")
         }
         
         // Check if we're in cooldown period after a popup was shown
-        if (now - lastScrollLimiterTriggerTime < scrollLimiterCooldownMs) {
-            Log.v(TAG, "Facebook scroll limiter: In cooldown period")
+        if (now - lastTriggerTime < scrollLimiterCooldownMs) {
+            Log.v(TAG, "$appName scroll limiter: In cooldown period")
             return
         }
         
         // Reset tracking if user stopped scrolling for too long
-        val lastScroll = lastFacebookScrollTime ?: 0L
+        val lastScroll = lastScrollTime ?: 0L
         if (lastScroll > 0 && (now - lastScroll) > scrollInactivityResetMs) {
-            facebookScrollStartTime = null
-            facebookScrollLimiterShown = false
-            lastProgressNotificationSecond = 0
-            Log.d(TAG, "Facebook scroll limiter: Reset due to inactivity")
+            resetAppScrollTracking(appName)
+            Log.d(TAG, "$appName scroll limiter: Reset due to inactivity")
         }
         
         // Update last scroll time
-        lastFacebookScrollTime = now
+        setAppLastScrollTime(appName, now)
         
         // Initialize scroll start time if not set
-        if (facebookScrollStartTime == null) {
-            facebookScrollStartTime = now
-            facebookScrollLimiterShown = false
-            lastProgressNotificationSecond = 0
-            Log.d(TAG, "Facebook scroll limiter: ⏱️ Started tracking scroll time")
+        if (scrollStartTime == null) {
+            setAppScrollStartTime(appName, now)
+            setAppScrollLimiterShown(appName, false)
+            setAppLastProgressSecond(appName, 0)
+            Log.d(TAG, "$appName scroll limiter: ⏱️ Started tracking scroll time")
             
             // Show toast to inform user tracking has started
             android.os.Handler(android.os.Looper.getMainLooper()).post {
                 android.widget.Toast.makeText(
                     this,
-                    "⏱️ Facebook usage timer started (1 min limit)",
+                    "⏱️ $appName usage timer started (1 min limit)",
                     android.widget.Toast.LENGTH_SHORT
                 ).show()
             }
@@ -426,61 +524,110 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
         }
         
         // Check if user has been scrolling for more than 1 minute (60,000 ms)
-        val scrollDuration = now - (facebookScrollStartTime ?: now)
+        val scrollDuration = now - (scrollStartTime ?: now)
         val oneMinuteMs = 60000L
         
         // Show progress notifications every 20 seconds
         val seconds = (scrollDuration / 1000).toInt()
-        if (seconds >= 20 && seconds < 60 && (seconds == 20 || seconds == 40) && lastProgressNotificationSecond != seconds) {
-            lastProgressNotificationSecond = seconds
-            Log.d(TAG, "Facebook scroll limiter: ${seconds}s elapsed")
+        if (seconds >= 20 && seconds < 60 && (seconds == 20 || seconds == 40) && lastProgressSecond != seconds) {
+            setAppLastProgressSecond(appName, seconds)
+            Log.d(TAG, "$appName scroll limiter: ${seconds}s elapsed")
             android.os.Handler(android.os.Looper.getMainLooper()).post {
                 android.widget.Toast.makeText(
                     this,
-                    "⏱️ Facebook usage: ${seconds}s / 60s",
+                    "⏱️ $appName usage: ${seconds}s / 60s",
                     android.widget.Toast.LENGTH_SHORT
                 ).show()
             }
         }
         
-        Log.v(TAG, "Facebook scroll limiter: Duration = ${scrollDuration/1000}s")
+        Log.v(TAG, "$appName scroll limiter: Duration = ${scrollDuration/1000}s")
         
-        if (!facebookScrollLimiterShown && scrollDuration >= oneMinuteMs) {
-            Log.d(TAG, "Facebook scroll limiter: 🚨 1 minute threshold reached (${scrollDuration/1000}s), showing overlay")
+        if (!scrollLimiterShown && scrollDuration >= oneMinuteMs) {
+            Log.d(TAG, "$appName scroll limiter: 🚨 1 minute threshold reached (${scrollDuration/1000}s), showing overlay")
             
             // Activate mandatory 30-second break
-            mandatoryBreakEndTime = now + mandatoryBreakDurationMs
-            Log.d(TAG, "Facebook scroll limiter: Mandatory 30-second break activated")
+            setAppBreakEndTime(appName, now + mandatoryBreakDurationMs)
+            Log.d(TAG, "$appName scroll limiter: Mandatory 30-second break activated")
             
-            showScrollLimiterOverlay()
-            facebookScrollLimiterShown = true
-            lastScrollLimiterTriggerTime = now
+            showScrollLimiterOverlay(appName, 30)
+            setAppScrollLimiterShown(appName, true)
+            setAppLastTriggerTime(appName, now)
             // Reset for next session
-            facebookScrollStartTime = null
-            lastFacebookScrollTime = null
+            setAppScrollStartTime(appName, null)
+            setAppLastScrollTime(appName, null)
         }
     }
     
-    private fun showScrollLimiterOverlay() {
+    // Helper data class for scroll tracking
+    private data class Tuple6<A, B, C, D, E, F>(val a: A, val b: B, val c: C, val d: D, val e: E, val f: F)
+    
+    // Helper methods to set app-specific scroll tracking variables
+    private fun setAppScrollStartTime(appName: String, time: Long?) {
+        when (appName) {
+            "Facebook" -> facebookScrollStartTime = time
+            "YouTube" -> youtubeScrollStartTime = time
+            "Instagram" -> instagramScrollStartTime = time
+        }
+    }
+    
+    private fun setAppLastScrollTime(appName: String, time: Long?) {
+        when (appName) {
+            "Facebook" -> lastFacebookScrollTime = time
+            "YouTube" -> lastYoutubeScrollTime = time
+            "Instagram" -> lastInstagramScrollTime = time
+        }
+    }
+    
+    private fun setAppScrollLimiterShown(appName: String, shown: Boolean) {
+        when (appName) {
+            "Facebook" -> facebookScrollLimiterShown = shown
+            "YouTube" -> youtubeScrollLimiterShown = shown
+            "Instagram" -> instagramScrollLimiterShown = shown
+        }
+    }
+    
+    private fun setAppLastTriggerTime(appName: String, time: Long) {
+        when (appName) {
+            "Facebook" -> lastFacebookScrollLimiterTriggerTime = time
+            "YouTube" -> lastYoutubeScrollLimiterTriggerTime = time
+            "Instagram" -> lastInstagramScrollLimiterTriggerTime = time
+        }
+    }
+    
+    private fun setAppLastProgressSecond(appName: String, second: Int) {
+        when (appName) {
+            "Facebook" -> lastFacebookProgressNotificationSecond = second
+            "YouTube" -> lastYoutubeProgressNotificationSecond = second
+            "Instagram" -> lastInstagramProgressNotificationSecond = second
+        }
+    }
+    
+    private fun setAppBreakEndTime(appName: String, time: Long?) {
+        when (appName) {
+            "Facebook" -> facebookMandatoryBreakEndTime = time
+            "YouTube" -> youtubeMandatoryBreakEndTime = time
+            "Instagram" -> instagramMandatoryBreakEndTime = time
+        }
+    }
+    
+    private fun resetAppScrollTracking(appName: String) {
+        setAppScrollStartTime(appName, null)
+        setAppScrollLimiterShown(appName, false)
+        setAppLastProgressSecond(appName, 0)
+    }
+    
+    private fun showScrollLimiterOverlay(appName: String, remainingSeconds: Int) {
         try {
             val intent = android.content.Intent(
                 this, 
                 com.example.socialsentry.presentation.ui.overlay.ScrollLimiterOverlayActivity::class.java
             )
             intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-            
-            // Calculate and pass remaining seconds to the overlay
-            val breakEndTime = mandatoryBreakEndTime
-            val remainingSeconds = if (breakEndTime != null) {
-                val now = System.currentTimeMillis()
-                val remaining = ((breakEndTime - now) / 1000).toInt()
-                if (remaining > 0) remaining else 30 // Default to 30 if break not active
-            } else {
-                30 // Default to 30 seconds for new break
-            }
-            
+            intent.putExtra("APP_NAME", appName)
             intent.putExtra("REMAINING_SECONDS", remainingSeconds)
-            Log.d(TAG, "Scroll limiter overlay activity started with ${remainingSeconds}s remaining")
+            
+            Log.d(TAG, "Scroll limiter overlay activity started for $appName with ${remainingSeconds}s remaining")
             
             startActivity(intent)
         } catch (e: Exception) {

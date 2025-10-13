@@ -89,7 +89,13 @@ data class SocialSentrySettings(
     val temporaryUnblockSessionStartEpochMs: Long? = null,
     // ISO-8601 local date (yyyy-MM-dd) when the allowance was last reset
     val lastAllowanceResetLocalDate: String? = null,
-    // Scroll limiter feature for Facebook - shows popup after 1 min of scrolling
+    // Scroll limiter feature - shows popup after 1 min of scrolling
+    // Individual toggles for each app
+    val scrollLimiterYoutubeEnabled: Boolean = false,
+    val scrollLimiterFacebookEnabled: Boolean = false,
+    val scrollLimiterInstagramEnabled: Boolean = false,
+    // Legacy field kept for backwards compatibility
+    @Deprecated("Use individual app scroll limiter flags")
     val scrollLimiterEnabled: Boolean = false
 )
 
