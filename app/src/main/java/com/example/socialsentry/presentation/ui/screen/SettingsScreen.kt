@@ -616,22 +616,21 @@ fun SettingsScreen(
                         StatSlider("FOC", dash.statFoc) { v -> viewModel.updateGameDashboard { it.copy(statFoc = v) } }
                         StatSlider("FIN", dash.statFin) { v -> viewModel.updateGameDashboard { it.copy(statFin = v) } }
 
-                        // Images
-                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            val avatarPicker = rememberLauncherForActivityResult(
-                                contract = ActivityResultContracts.GetContent()
-                            ) { uri ->
-                                if (uri != null) {
-                                    viewModel.updateGameDashboard { it.copy(avatarImageUri = uri.toString()) }
-                                }
+                        // Photo Selection - Single button for changing photo
+                        val photoPicker = rememberLauncherForActivityResult(
+                            contract = ActivityResultContracts.GetContent()
+                        ) { uri ->
+                            if (uri != null) {
+                                // Set as banner (full background) by default, user can change preference
+                                viewModel.updateGameDashboard { it.copy(bannerImageUri = uri.toString()) }
                             }
-                            
-                            OutlinedButton(onClick = { avatarPicker.launch("image/*") }, modifier = Modifier.weight(1f)) {
-                                Text("Pick avatar")
-                            }
-                            OutlinedButton(onClick = { bannerPicker.launch("image/*") }, modifier = Modifier.weight(1f)) {
-                                Text("Pick banner")
-                            }
+                        }
+                        
+                        OutlinedButton(
+                            onClick = { photoPicker.launch("image/*") },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("📷 Change Photo")
                         }
                     }
                 }

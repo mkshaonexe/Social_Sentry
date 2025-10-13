@@ -206,7 +206,7 @@ fun PlayerSection(
         
         Spacer(modifier = Modifier.height(16.dp))
         
-        // Player Avatar and Banner Card
+        // Player Photo Card - Shows single photo (banner or avatar)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -215,23 +215,25 @@ fun PlayerSection(
                 .background(Color.Black),
             contentAlignment = Alignment.Center
         ) {
-            // Show selected banner image as full background if present
             val context = LocalContext.current
             val settingsViewModel = koinViewModel<SocialSentryViewModel>()
             val settings by settingsViewModel.settings.collectAsStateWithLifecycle()
             val bannerUri = settings.gameDashboard.bannerImageUri
             val avatarUri = settings.gameDashboard.avatarImageUri
             
-            if (bannerUri != null) {
-                AsyncImage(
-                    model = bannerUri,
-                    contentDescription = "Banner",
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
-                )
-            } else {
-                // Show avatar as profile picture in center
-                if (avatarUri != null) {
+            // Priority: Banner first, then avatar, then default
+            when {
+                bannerUri != null -> {
+                    // Show banner as full background
+                    AsyncImage(
+                        model = bannerUri,
+                        contentDescription = "Banner",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+                avatarUri != null -> {
+                    // Show avatar as profile picture in center
                     AsyncImage(
                         model = avatarUri,
                         contentDescription = "Profile Picture",
@@ -240,18 +242,17 @@ fun PlayerSection(
                             .clip(RoundedCornerShape(60.dp)),
                         contentScale = ContentScale.Crop
                     )
-                } else {
-                    // Minimal placeholder
-                    Canvas(modifier = Modifier.fillMaxSize()) {
-                        val centerX = size.width / 2
-                        val centerY = size.height / 2
-                        val radius = size.minDimension / 3
-                        drawCircle(
-                            color = Color(0xFF444444),
-                            radius = radius,
-                            center = androidx.compose.ui.geometry.Offset(centerX, centerY)
-                        )
-                    }
+                }
+                else -> {
+                    // Show default profile picture
+                    AsyncImage(
+                        model = "android.resource://com.example.socialsentry/drawable/default_profile_pic",
+                        contentDescription = "Default Profile Picture",
+                        modifier = Modifier
+                            .size(120.dp)
+                            .clip(RoundedCornerShape(60.dp)),
+                        contentScale = ContentScale.Crop
+                    )
                 }
             }
         }
