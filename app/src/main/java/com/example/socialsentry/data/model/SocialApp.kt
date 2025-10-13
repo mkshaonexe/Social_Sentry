@@ -110,7 +110,7 @@ data class GameDashboard(
     val title: String = "Level 1 ⚔ The Awakening",
     val rank: String = "E-Rank Hunter",
     val quote: String = "THE SYSTEM USES ME, AND I USE THE SYSTEM",
-    val avatarImageUri: String? = "android.resource://com.example.socialsentry/drawable/default_profile_pic",
+    val avatarImageUri: String? = null,
     val bannerImageUri: String? = null,
     // Six stats mapped to labels [FIT, SOC, INT, DIS, FOC, FIN]
     val statFit: Float = 0.85f,

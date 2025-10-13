@@ -198,9 +198,9 @@ fun CompactPermissionWarning(
         
         Box(
             modifier = modifier
-                .size(40.dp)
-                .clip(RoundedCornerShape(20.dp))
-                .background(Color(0xFFFF6B6B).copy(alpha = 0.2f))
+                .size(48.dp)
+                .clip(RoundedCornerShape(24.dp))
+                .background(Color(0xFFFF6B6B).copy(alpha = 0.3f))
                 .clickable(onClick = onClick),
             contentAlignment = Alignment.Center
         ) {
@@ -213,7 +213,7 @@ fun CompactPermissionWarning(
                     imageVector = Icons.Default.Warning,
                     contentDescription = "Missing Permissions",
                     tint = Color(0xFFFF6B6B).copy(alpha = alpha),
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(28.dp)
                 )
                 
                 // Count badge

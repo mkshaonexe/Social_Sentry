@@ -1,5 +1,6 @@
 package com.example.socialsentry.presentation.ui.screen
 
+import com.example.socialsentry.R
 import android.content.res.Configuration
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -260,13 +261,11 @@ fun PlayerSection(
                     )
                 }
                 else -> {
-                    // Show default profile picture
+                    // Show default profile picture as full background
                     AsyncImage(
-                        model = "android.resource://com.example.socialsentry/drawable/default_profile_pic",
+                        model = R.drawable.default_profile_pic,
                         contentDescription = "Default Profile Picture",
-                        modifier = Modifier
-                            .size(120.dp)
-                            .clip(RoundedCornerShape(60.dp)),
+                        modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop
                     )
                 }

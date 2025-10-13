@@ -153,54 +153,59 @@ fun BlockScrollScreen(
             .systemBarsPadding()
     ) {
         
-        // Settings button in top left
-        IconButton(
-            onClick = onNavigateToSettings,
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(16.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.Menu,
-                contentDescription = "Menu",
-                tint = White,
-                modifier = Modifier.size(28.dp)
-            )
-        }
-        
-        // Warning icon when permissions are missing
-        if (!permissionStatus.hasAllPermissions) {
-            CompactPermissionWarning(
-                permissionStatus = permissionStatus,
-                onClick = { showPermissionDialog = true },
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(16.dp)
-            )
-        }
-        
-        // Remaining time and Add button in top right
+        // Top Header Row - Settings, Warning Icon (centered), Time+Add
         Row(
             modifier = Modifier
-                .align(Alignment.TopEnd)
+                .fillMaxWidth()
+                .align(Alignment.TopCenter)
                 .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = formatDuration(remainingMsActive),
-                color = White,
-                fontSize = 14.sp,
-                modifier = Modifier.padding(end = 8.dp)
-            )
+            // Settings button - LEFT
             IconButton(
-                onClick = { showAddTimeDialog = true }
+                onClick = onNavigateToSettings
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.Add,
-                    contentDescription = "Add Time",
+                    imageVector = Icons.Rounded.Menu,
+                    contentDescription = "Menu",
                     tint = White,
                     modifier = Modifier.size(28.dp)
                 )
+            }
+            
+            // Warning icon - CENTER (between left and right)
+            if (!permissionStatus.hasAllPermissions) {
+                CompactPermissionWarning(
+                    permissionStatus = permissionStatus,
+                    onClick = { showPermissionDialog = true },
+                    modifier = Modifier
+                )
+            } else {
+                // Empty spacer when no warning to maintain layout
+                Spacer(modifier = Modifier.size(48.dp))
+            }
+            
+            // Time and Add button - RIGHT
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = formatDuration(remainingMsActive),
+                    color = White,
+                    fontSize = 14.sp,
+                    modifier = Modifier.padding(end = 8.dp)
+                )
+                IconButton(
+                    onClick = { showAddTimeDialog = true }
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Add,
+                        contentDescription = "Add Time",
+                        tint = White,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
             }
         }
         Column(
