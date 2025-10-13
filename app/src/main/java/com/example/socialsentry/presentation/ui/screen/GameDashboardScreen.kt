@@ -50,6 +50,12 @@ import kotlin.math.cos
 import kotlin.math.sin
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
+import com.example.socialsentry.manager.AppUsageManager
+import com.example.socialsentry.data.model.AppUsageStats
+import com.example.socialsentry.data.model.AppCategory
+import com.example.socialsentry.util.PermissionChecker
+import android.content.Context
+import androidx.compose.ui.platform.LocalContext
 
 @Composable
 fun GameDashboardScreen(
@@ -102,13 +108,18 @@ fun GameDashboardScreen(
                     )
                 }
                 
-                // System Section
+                // Screen Time Section
                 AnimatedSection(visible = visible, delay = 200) {
+                    ScreenTimeSection()
+                }
+                
+                // System Section
+                AnimatedSection(visible = visible, delay = 300) {
                     SystemSection()
                 }
                 
                 // YouTube Stats Section
-                AnimatedSection(visible = visible, delay = 300) {
+                AnimatedSection(visible = visible, delay = 400) {
                     YouTubeStatsSection(youtubeStats)
                 }
             }
@@ -133,8 +144,13 @@ fun GameDashboardScreen(
                     )
                 }
                 
-                // YouTube Stats Summary
+                // Screen Time Section
                 AnimatedSection(visible = visible, delay = 150) {
+                    ScreenTimeSection()
+                }
+                
+                // YouTube Stats Summary
+                AnimatedSection(visible = visible, delay = 200) {
                     YouTubeQuickStatsSection(
                         quote = dashboard.quote,
                         youtubeStats = youtubeStats
@@ -142,7 +158,7 @@ fun GameDashboardScreen(
                 }
                 
                 // YouTube Stats Section
-                AnimatedSection(visible = visible, delay = 200) {
+                AnimatedSection(visible = visible, delay = 250) {
                     YouTubeStatsSection(youtubeStats)
                 }
             }
@@ -2041,6 +2057,398 @@ fun ImprovedRadarChart(stats: List<Float>) {
                     .padding(start = 12.dp, top = 32.dp)
             )
         }
+    }
+}
+
+@Composable
+fun ScreenTimeSection() {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val youtubeDataStore = koinInject<YouTubeTrackingDataStore>()
+    
+    var usageStats by remember { mutableStateOf<AppUsageStats?>(null) }
+    var isLoading by remember { mutableStateOf(true) }
+    var hasPermission by remember { mutableStateOf(false) }
+    
+    // Check permission status
+    LaunchedEffect(Unit) {
+        hasPermission = PermissionChecker.hasUsageStatsPermission(context)
+        if (hasPermission) {
+            val appUsageManager = AppUsageManager(context, youtubeDataStore)
+            usageStats = appUsageManager.getTodayUsageStats()
+        }
+        isLoading = false
+    }
+    
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(6.dp, RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color(0xFF1A1A1A))
+            .padding(24.dp)
+    ) {
+        // Header with icon
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(
+                imageVector = Icons.Default.Info,
+                contentDescription = null,
+                tint = Color(0xFF00BCD4), // Cyan color for screen time
+                modifier = Modifier.size(24.dp)
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                text = "Screen Time",
+                fontSize = 18.sp,
+                color = White,
+                fontWeight = FontWeight.Bold
+            )
+        }
+        
+        Spacer(modifier = Modifier.height(20.dp))
+        
+        if (isLoading) {
+            // Loading state
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(120.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(
+                    color = Color(0xFF00BCD4),
+                    strokeWidth = 3.dp
+                )
+            }
+        } else if (!hasPermission) {
+            // Permission not granted
+            PermissionRequiredContent()
+        } else if (usageStats == null || usageStats?.totalScreenTime == 0L) {
+            // No data available
+            NoDataContent()
+        } else {
+            // Show screen time data
+            usageStats?.let { stats ->
+                ScreenTimeContent(stats = stats)
+            }
+        }
+    }
+}
+
+@Composable
+fun PermissionRequiredContent() {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val youtubeDataStore = koinInject<YouTubeTrackingDataStore>()
+    
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Icon(
+            imageVector = Icons.Default.Lock,
+            contentDescription = null,
+            tint = Color(0xFFFF9800),
+            modifier = Modifier.size(48.dp)
+        )
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        Text(
+            text = "Permission Required",
+            fontSize = 16.sp,
+            color = White,
+            fontWeight = FontWeight.Bold
+        )
+        
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        Text(
+            text = "Grant usage stats permission to view your screen time",
+            fontSize = 12.sp,
+            color = TextGray,
+            textAlign = TextAlign.Center
+        )
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        Button(
+            onClick = {
+                scope.launch {
+                    val appUsageManager = AppUsageManager(context, youtubeDataStore)
+                    appUsageManager.openUsageStatsSettings()
+                }
+            },
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFF00BCD4)
+            ),
+            shape = RoundedCornerShape(8.dp)
+        ) {
+            Text(
+                text = "Grant Permission",
+                color = White,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
+@Composable
+fun NoDataContent() {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Text(
+            text = "📱",
+            fontSize = 48.sp
+        )
+        
+        Spacer(modifier = Modifier.height(12.dp))
+        
+        Text(
+            text = "No screen time data yet",
+            fontSize = 14.sp,
+            color = TextGray,
+            textAlign = TextAlign.Center
+        )
+        
+        Spacer(modifier = Modifier.height(4.dp))
+        
+        Text(
+            text = "Use your phone to see usage statistics!",
+            fontSize = 12.sp,
+            color = TextGray.copy(alpha = 0.7f),
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+@Composable
+fun ScreenTimeContent(stats: AppUsageStats) {
+    // Total screen time display
+    val totalHours = (stats.totalScreenTime / 3600000).toInt()
+    val totalMinutes = ((stats.totalScreenTime % 3600000) / 60000).toInt()
+    
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color(0xFF0F0F0F), RoundedCornerShape(12.dp))
+            .padding(16.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = "Today's Screen Time",
+                fontSize = 12.sp,
+                color = TextGray,
+                fontWeight = FontWeight.Medium
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.Bottom) {
+                if (totalHours > 0) {
+                    Text(
+                        text = "${totalHours}h ",
+                        fontSize = 32.sp,
+                        color = Color(0xFF00BCD4),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                Text(
+                    text = "${totalMinutes}m",
+                    fontSize = 32.sp,
+                    color = Color(0xFF00BCD4),
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+    
+    Spacer(modifier = Modifier.height(20.dp))
+    
+    // Category breakdown
+    if (stats.categoryBreakdown.isNotEmpty()) {
+        Text(
+            text = "App Categories",
+            fontSize = 14.sp,
+            color = White,
+            fontWeight = FontWeight.Bold
+        )
+        
+        Spacer(modifier = Modifier.height(12.dp))
+        
+        // Show top 5 categories
+        val sortedCategories = stats.categoryBreakdown.entries
+            .sortedByDescending { it.value }
+            .take(5)
+        
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            sortedCategories.forEach { (category, time) ->
+                val percentage = if (stats.totalScreenTime > 0) {
+                    ((time.toFloat() / stats.totalScreenTime) * 100).toInt()
+                } else 0
+                val categoryMinutes = (time / 60000).toInt()
+                
+                AppCategoryItem(
+                    category = category,
+                    timeMinutes = categoryMinutes,
+                    percentage = percentage
+                )
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        HorizontalDivider(color = TextGray.copy(alpha = 0.2f))
+        Spacer(modifier = Modifier.height(16.dp))
+    }
+    
+    // Top apps
+    if (stats.topApps.isNotEmpty()) {
+        Text(
+            text = "Most Used Apps",
+            fontSize = 14.sp,
+            color = White,
+            fontWeight = FontWeight.Bold
+        )
+        
+        Spacer(modifier = Modifier.height(12.dp))
+        
+        // Show top 3 apps
+        val topApps = stats.topApps.entries.take(3)
+        
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            topApps.forEach { (packageName, time) ->
+                val appMinutes = (time / 60000).toInt()
+                val appName = getAppDisplayName(packageName)
+                
+                TopAppItem(
+                    appName = appName,
+                    timeMinutes = appMinutes
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun AppCategoryItem(
+    category: AppCategory,
+    timeMinutes: Int,
+    percentage: Int
+) {
+    val (color, icon, label) = when (category) {
+        AppCategory.STUDY -> Triple(Color(0xFF4CAF50), "📚", "Study")
+        AppCategory.SOCIAL_MEDIA -> Triple(Color(0xFFE91E63), "📱", "Social")
+        AppCategory.ENTERTAINMENT -> Triple(Color(0xFF9C27B0), "🎬", "Entertainment")
+        AppCategory.PRODUCTIVITY -> Triple(Color(0xFF2196F3), "💼", "Productivity")
+        AppCategory.COMMUNICATION -> Triple(Color(0xFFFF9800), "💬", "Communication")
+        AppCategory.UTILITIES -> Triple(Color(0xFF607D8B), "🔧", "Utilities")
+        AppCategory.OTHER -> Triple(Color(0xFF757575), "❓", "Other")
+    }
+    
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Color indicator
+        Box(
+            modifier = Modifier
+                .size(12.dp)
+                .background(color, RoundedCornerShape(2.dp))
+        )
+        
+        Spacer(modifier = Modifier.width(12.dp))
+        
+        Text(
+            text = icon,
+            fontSize = 16.sp
+        )
+        
+        Spacer(modifier = Modifier.width(8.dp))
+        
+        Text(
+            text = label,
+            fontSize = 13.sp,
+            color = White,
+            modifier = Modifier.weight(1f)
+        )
+        
+        Text(
+            text = "${timeMinutes}m",
+            fontSize = 13.sp,
+            color = TextGray,
+            fontWeight = FontWeight.Medium
+        )
+        
+        Spacer(modifier = Modifier.width(12.dp))
+        
+        Text(
+            text = "${percentage}%",
+            fontSize = 13.sp,
+            color = color,
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+
+@Composable
+fun TopAppItem(
+    appName: String,
+    timeMinutes: Int
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color(0xFF0F0F0F), RoundedCornerShape(8.dp))
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // App icon placeholder
+        Box(
+            modifier = Modifier
+                .size(32.dp)
+                .background(Color(0xFF2A2A2A), RoundedCornerShape(8.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "📱",
+                fontSize = 16.sp
+            )
+        }
+        
+        Spacer(modifier = Modifier.width(12.dp))
+        
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = appName,
+                fontSize = 13.sp,
+                color = White,
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text = "${timeMinutes} minutes",
+                fontSize = 11.sp,
+                color = TextGray
+            )
+        }
+    }
+}
+
+private fun getAppDisplayName(packageName: String): String {
+    return when (packageName) {
+        "com.google.android.youtube" -> "YouTube"
+        "com.instagram.android" -> "Instagram"
+        "com.facebook.katana" -> "Facebook"
+        "com.zhiliaoapp.musically" -> "TikTok"
+        "com.twitter.android" -> "Twitter"
+        "com.snapchat.android" -> "Snapchat"
+        "com.whatsapp" -> "WhatsApp"
+        "com.spotify.music" -> "Spotify"
+        "com.netflix.mediaclient" -> "Netflix"
+        else -> packageName.split(".").lastOrNull()?.replaceFirstChar { it.uppercase() } ?: packageName
     }
 }
 
