@@ -94,6 +94,8 @@ data class SocialSentrySettings(
     val scrollLimiterYoutubeEnabled: Boolean = false,
     val scrollLimiterFacebookEnabled: Boolean = false,
     val scrollLimiterInstagramEnabled: Boolean = false,
+    // Threads (Instagram Threads) scroll limiter toggle
+    val scrollLimiterThreadsEnabled: Boolean = false,
     // Legacy field kept for backwards compatibility
     @Deprecated("Use individual app scroll limiter flags")
     val scrollLimiterEnabled: Boolean = false

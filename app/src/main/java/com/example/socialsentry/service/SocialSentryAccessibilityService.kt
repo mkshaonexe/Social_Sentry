@@ -104,6 +104,15 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
                     Log.v(TAG, "Instagram detected but scroll limiter is disabled")
                 }
             }
+            // Threads (Instagram Threads) - support common package variants
+            "com.instagram.barcelona", "com.instagram.threadsapp" -> {
+                if (settings.scrollLimiterThreadsEnabled) {
+                    Log.d(TAG, "Threads detected, scroll limiter enabled, event type: ${event.eventType}")
+                    trackScrollLimiter(event, "Threads")
+                } else {
+                    Log.v(TAG, "Threads detected but scroll limiter is disabled")
+                }
+            }
         }
 
         // If user has an active temporary unblock session, skip blocking logic only
@@ -116,6 +125,8 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
             "com.facebook.katana" -> handleFacebook(root, event, currentMinute)
             "com.google.android.youtube" -> handleYoutube(root, currentMinute)
             "com.zhiliaoapp.musically" -> handleTikTok(currentMinute)
+            // Threads currently only uses scroll limiter; show overlay during mandatory break
+            "com.instagram.barcelona", "com.instagram.threadsapp" -> handleThreads(currentMinute)
         }
     }
 
@@ -176,6 +187,19 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
         if (shortsFeature?.isEnabled == true && isWithinTimeRange(shortsFeature.startTime, shortsFeature.endTime, currentMinute)) {
             blockYouTube(root)
         }
+    }
+
+    private fun handleThreads(currentMinute: Int) {
+        val now = System.currentTimeMillis()
+        // PRIORITY: Enforce mandatory break overlay during cooldown window
+        val breakEndTime = threadsMandatoryBreakEndTime
+        if (breakEndTime != null && now < breakEndTime) {
+            val remainingSeconds = ((breakEndTime - now) / 1000).toInt()
+            Log.d(TAG, "Threads scroll limiter: Mandatory break active (${remainingSeconds}s remaining)")
+            showScrollLimiterOverlay("Threads", remainingSeconds)
+            return
+        }
+        // No content-specific blocking for Threads at the moment
     }
     
     private fun blockYouTube(root: AccessibilityNodeInfo) {
@@ -426,6 +450,13 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
     private var lastInstagramScrollLimiterTriggerTime: Long = 0L
     private var lastInstagramProgressNotificationSecond = 0
     
+    // Threads scroll tracking
+    private var threadsScrollStartTime: Long? = null
+    private var lastThreadsScrollTime: Long? = null
+    private var threadsScrollLimiterShown = false
+    private var lastThreadsScrollLimiterTriggerTime: Long = 0L
+    private var lastThreadsProgressNotificationSecond = 0
+    
     // Common scroll limiter configuration
     private val scrollLimiterCooldownMs = 10000L // 10 seconds cooldown after mandatory break ends
     private val scrollInactivityResetMs = 8000L // Reset if no interaction for 8 seconds
@@ -435,6 +466,7 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
     private var facebookMandatoryBreakEndTime: Long? = null
     private var youtubeMandatoryBreakEndTime: Long? = null
     private var instagramMandatoryBreakEndTime: Long? = null
+    private var threadsMandatoryBreakEndTime: Long? = null
 
     private fun trackMindfulScroll(packageName: String, event: AccessibilityEvent?) {
         // Only consider scroll events
@@ -495,6 +527,7 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
             "Facebook" -> Tuple6(facebookScrollStartTime, lastFacebookScrollTime, facebookScrollLimiterShown, lastFacebookScrollLimiterTriggerTime, lastFacebookProgressNotificationSecond, facebookMandatoryBreakEndTime)
             "YouTube" -> Tuple6(youtubeScrollStartTime, lastYoutubeScrollTime, youtubeScrollLimiterShown, lastYoutubeScrollLimiterTriggerTime, lastYoutubeProgressNotificationSecond, youtubeMandatoryBreakEndTime)
             "Instagram" -> Tuple6(instagramScrollStartTime, lastInstagramScrollTime, instagramScrollLimiterShown, lastInstagramScrollLimiterTriggerTime, lastInstagramProgressNotificationSecond, instagramMandatoryBreakEndTime)
+            "Threads" -> Tuple6(threadsScrollStartTime, lastThreadsScrollTime, threadsScrollLimiterShown, lastThreadsScrollLimiterTriggerTime, lastThreadsProgressNotificationSecond, threadsMandatoryBreakEndTime)
             else -> return
         }
         
@@ -588,6 +621,7 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
             "Facebook" -> facebookScrollStartTime = time
             "YouTube" -> youtubeScrollStartTime = time
             "Instagram" -> instagramScrollStartTime = time
+            "Threads" -> threadsScrollStartTime = time
         }
     }
     
@@ -596,6 +630,7 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
             "Facebook" -> lastFacebookScrollTime = time
             "YouTube" -> lastYoutubeScrollTime = time
             "Instagram" -> lastInstagramScrollTime = time
+            "Threads" -> lastThreadsScrollTime = time
         }
     }
     
@@ -604,6 +639,7 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
             "Facebook" -> facebookScrollLimiterShown = shown
             "YouTube" -> youtubeScrollLimiterShown = shown
             "Instagram" -> instagramScrollLimiterShown = shown
+            "Threads" -> threadsScrollLimiterShown = shown
         }
     }
     
@@ -612,6 +648,7 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
             "Facebook" -> lastFacebookScrollLimiterTriggerTime = time
             "YouTube" -> lastYoutubeScrollLimiterTriggerTime = time
             "Instagram" -> lastInstagramScrollLimiterTriggerTime = time
+            "Threads" -> lastThreadsScrollLimiterTriggerTime = time
         }
     }
     
@@ -620,6 +657,7 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
             "Facebook" -> lastFacebookProgressNotificationSecond = second
             "YouTube" -> lastYoutubeProgressNotificationSecond = second
             "Instagram" -> lastInstagramProgressNotificationSecond = second
+            "Threads" -> lastThreadsProgressNotificationSecond = second
         }
     }
     
@@ -628,6 +666,7 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
             "Facebook" -> facebookMandatoryBreakEndTime = time
             "YouTube" -> youtubeMandatoryBreakEndTime = time
             "Instagram" -> instagramMandatoryBreakEndTime = time
+            "Threads" -> threadsMandatoryBreakEndTime = time
         }
     }
     

@@ -413,6 +413,61 @@ fun SettingsScreen(
                     }
                 }
             }
+
+            // Threads Scroll Limiter
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp)),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(20.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "🧵 Threads",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Limit scrolling time",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.width(12.dp))
+                        
+                        Switch(
+                            checked = settings.scrollLimiterThreadsEnabled,
+                            onCheckedChange = { enabled ->
+                                viewModel.updateScrollLimiterThreadsEnabled(enabled)
+                            },
+                            enabled = isAccessibilityEnabled,
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color(0xFF4CAF50),
+                                checkedTrackColor = Color(0xFF4CAF50).copy(alpha = 0.5f),
+                                uncheckedThumbColor = Color(0xFF9E9E9E),
+                                uncheckedTrackColor = Color(0xFF9E9E9E).copy(alpha = 0.3f),
+                                disabledCheckedThumbColor = Color(0xFF4CAF50).copy(alpha = 0.5f),
+                                disabledCheckedTrackColor = Color(0xFF4CAF50).copy(alpha = 0.3f),
+                                disabledUncheckedThumbColor = Color(0xFF757575),
+                                disabledUncheckedTrackColor = Color(0xFF757575).copy(alpha = 0.3f)
+                            )
+                        )
+                    }
+                }
+            }
         }
 
         // Game Dashboard - Clickable to expand/collapse and edit content
