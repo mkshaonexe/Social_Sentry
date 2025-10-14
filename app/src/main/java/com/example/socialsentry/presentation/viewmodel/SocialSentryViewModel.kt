@@ -214,6 +214,13 @@ class SocialSentryViewModel(
             dataStore.updateSettings(currentSettings.copy(scrollLimiterThreadsEnabled = enabled))
         }
     }
+    
+    fun updateScrollLimiterPinterestEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            val currentSettings = settings.value
+            dataStore.updateSettings(currentSettings.copy(scrollLimiterPinterestEnabled = enabled))
+        }
+    }
 
     // Internal utility to write entire settings snapshot (used by settings UI)
     suspend fun updateSettingsDirect(updated: SocialSentrySettings) {

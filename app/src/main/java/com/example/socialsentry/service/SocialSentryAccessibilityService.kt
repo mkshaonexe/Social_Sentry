@@ -61,6 +61,7 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        Log.d(TAG, "🔍 onAccessibilityEvent called with event: ${event?.eventType} from ${event?.packageName}")
         val packageName = event?.packageName?.toString() ?: return
         val root = rootInActiveWindow ?: return
 
@@ -130,6 +131,15 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
                     Log.v(TAG, "Instagram detected but scroll limiter is disabled")
                 }
             }
+            "com.pinterest" -> {
+                Log.d(TAG, "🎯 Pinterest detected! Event type: ${event.eventType}, scroll limiter enabled: ${settings.scrollLimiterPinterestEnabled}")
+                if (settings.scrollLimiterPinterestEnabled) {
+                    Log.d(TAG, "Pinterest detected, scroll limiter enabled, event type: ${event.eventType}")
+                    trackScrollLimiter(event, "Pinterest")
+                } else {
+                    Log.v(TAG, "Pinterest detected but scroll limiter is disabled")
+                }
+            }
             // Threads (Instagram Threads) - support common package variants
             "com.instagram.barcelona", "com.instagram.threadsapp" -> {
                 if (settings.scrollLimiterThreadsEnabled) {
@@ -155,6 +165,10 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
                 trackYouTubeUsage(root)
             }
             "com.zhiliaoapp.musically" -> handleTikTok(currentMinute)
+            "com.pinterest" -> {
+                Log.d(TAG, "🚫 Pinterest blocking check - isBlocked: ${settings.pinterest.isBlocked}, isTemporaryUnblockActive: ${settings.isTemporaryUnblockActive}")
+                handlePinterest(root, currentMinute)
+            }
             // Threads currently only uses scroll limiter; show overlay during mandatory break
             "com.instagram.barcelona", "com.instagram.threadsapp" -> handleThreads(currentMinute)
         }
@@ -230,6 +244,56 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
             return
         }
         // No content-specific blocking for Threads at the moment
+    }
+    
+    private fun handlePinterest(root: AccessibilityNodeInfo, currentMinute: Int) {
+        val now = System.currentTimeMillis()
+        Log.d(TAG, "🔍 handlePinterest called - isBlocked: ${settings.pinterest.isBlocked}, currentMinute: $currentMinute, isTemporaryUnblockActive: ${settings.isTemporaryUnblockActive}")
+        
+        // PRIORITY: Enforce mandatory break overlay during cooldown window
+        val breakEndTime = pinterestMandatoryBreakEndTime
+        if (breakEndTime != null && now < breakEndTime) {
+            val remainingSeconds = ((breakEndTime - now) / 1000).toInt()
+            Log.d(TAG, "Pinterest scroll limiter: Mandatory break active (${remainingSeconds}s remaining)")
+            showScrollLimiterOverlay("Pinterest", remainingSeconds)
+            return
+        }
+        
+        // Check if Pinterest is blocked by time schedule
+        if (settings.pinterest.isBlocked && isWithinTimeRange(settings.pinterest.blockTimeStart, settings.pinterest.blockTimeEnd, currentMinute)) {
+            Log.d(TAG, "🚫 Pinterest is blocked by time schedule - blocking now!")
+            // For Pinterest, we treat total usage as "reels time" since it doesn't have reels
+            // This means we block the entire app when time schedule is active
+            blockPinterest()
+            return
+        }
+        
+        // Check if Pinterest is blocked by allowance time
+        if (settings.pinterest.isBlocked && !settings.isTemporaryUnblockActive) {
+            Log.d(TAG, "🚫 Pinterest is blocked - user needs to use allowance time - blocking now!")
+            blockPinterest()
+            return
+        }
+        
+        Log.d(TAG, "✅ Pinterest is allowed - no blocking needed")
+    }
+    
+    private fun blockPinterest() {
+        // For Pinterest, we block the entire app since it doesn't have reels
+        // We'll redirect to home screen or show a blocking overlay
+        Log.d(TAG, "Pinterest: Blocking entire app (treating total usage as reels time)")
+        
+        // Try to go back to home screen
+        performGlobalAction(GLOBAL_ACTION_HOME)
+        
+        // Show a toast notification
+        android.os.Handler(android.os.Looper.getMainLooper()).post {
+            android.widget.Toast.makeText(
+                this,
+                "🚫 Pinterest is blocked - use your allowance time to access it",
+                android.widget.Toast.LENGTH_LONG
+            ).show()
+        }
     }
     
     private fun blockYouTube(root: AccessibilityNodeInfo) {
@@ -487,6 +551,13 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
     private var lastThreadsScrollLimiterTriggerTime: Long = 0L
     private var lastThreadsProgressNotificationSecond = 0
     
+    // Pinterest scroll tracking
+    private var pinterestScrollStartTime: Long? = null
+    private var lastPinterestScrollTime: Long? = null
+    private var pinterestScrollLimiterShown = false
+    private var lastPinterestScrollLimiterTriggerTime: Long = 0L
+    private var lastPinterestProgressNotificationSecond = 0
+    
     // Common scroll limiter configuration
     private val scrollLimiterCooldownMs = 10000L // 10 seconds cooldown after mandatory break ends
     private val scrollInactivityResetMs = 8000L // Reset if no interaction for 8 seconds
@@ -497,6 +568,7 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
     private var youtubeMandatoryBreakEndTime: Long? = null
     private var instagramMandatoryBreakEndTime: Long? = null
     private var threadsMandatoryBreakEndTime: Long? = null
+    private var pinterestMandatoryBreakEndTime: Long? = null
     
     // YouTube usage tracking
     private var currentYouTubeSession: YouTubeSession? = null
@@ -568,6 +640,7 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
             "YouTube" -> Tuple6(youtubeScrollStartTime, lastYoutubeScrollTime, youtubeScrollLimiterShown, lastYoutubeScrollLimiterTriggerTime, lastYoutubeProgressNotificationSecond, youtubeMandatoryBreakEndTime)
             "Instagram" -> Tuple6(instagramScrollStartTime, lastInstagramScrollTime, instagramScrollLimiterShown, lastInstagramScrollLimiterTriggerTime, lastInstagramProgressNotificationSecond, instagramMandatoryBreakEndTime)
             "Threads" -> Tuple6(threadsScrollStartTime, lastThreadsScrollTime, threadsScrollLimiterShown, lastThreadsScrollLimiterTriggerTime, lastThreadsProgressNotificationSecond, threadsMandatoryBreakEndTime)
+            "Pinterest" -> Tuple6(pinterestScrollStartTime, lastPinterestScrollTime, pinterestScrollLimiterShown, lastPinterestScrollLimiterTriggerTime, lastPinterestProgressNotificationSecond, pinterestMandatoryBreakEndTime)
             else -> return
         }
         
@@ -607,28 +680,34 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
             
             // Show toast to inform user tracking has started
             android.os.Handler(android.os.Looper.getMainLooper()).post {
+                val limitText = if (appName == "Facebook") "2 min limit" else "1 min limit"
                 android.widget.Toast.makeText(
                     this,
-                    "⏱️ $appName usage timer started (1 min limit)",
+                    "⏱️ $appName usage timer started ($limitText)",
                     android.widget.Toast.LENGTH_SHORT
                 ).show()
             }
             return
         }
         
-        // Check if user has been scrolling for more than 1 minute (60,000 ms)
+        // Check if user has been scrolling for more than the threshold
         val scrollDuration = now - (scrollStartTime ?: now)
-        val oneMinuteMs = 60000L
+        
+        // App-specific time thresholds
+        val (thresholdMs, thresholdSeconds) = when (appName) {
+            "Facebook" -> Pair(120000L, 120) // 2 minutes for Facebook
+            else -> Pair(60000L, 60) // 1 minute for other apps
+        }
         
         // Show progress notifications every 20 seconds
         val seconds = (scrollDuration / 1000).toInt()
-        if (seconds >= 20 && seconds < 60 && (seconds == 20 || seconds == 40) && lastProgressSecond != seconds) {
+        if (seconds >= 20 && seconds < thresholdSeconds && (seconds == 20 || seconds == 40 || (appName == "Facebook" && (seconds == 60 || seconds == 80 || seconds == 100))) && lastProgressSecond != seconds) {
             setAppLastProgressSecond(appName, seconds)
             Log.d(TAG, "$appName scroll limiter: ${seconds}s elapsed")
             android.os.Handler(android.os.Looper.getMainLooper()).post {
                 android.widget.Toast.makeText(
                     this,
-                    "⏱️ $appName usage: ${seconds}s / 60s",
+                    "⏱️ $appName usage: ${seconds}s / ${thresholdSeconds}s",
                     android.widget.Toast.LENGTH_SHORT
                 ).show()
             }
@@ -636,8 +715,9 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
         
         Log.v(TAG, "$appName scroll limiter: Duration = ${scrollDuration/1000}s")
         
-        if (!scrollLimiterShown && scrollDuration >= oneMinuteMs) {
-            Log.d(TAG, "$appName scroll limiter: 🚨 1 minute threshold reached (${scrollDuration/1000}s), showing overlay")
+        if (!scrollLimiterShown && scrollDuration >= thresholdMs) {
+            val thresholdText = if (appName == "Facebook") "2 minute" else "1 minute"
+            Log.d(TAG, "$appName scroll limiter: 🚨 $thresholdText threshold reached (${scrollDuration/1000}s), showing overlay")
             
             // Activate mandatory 30-second break
             setAppBreakEndTime(appName, now + mandatoryBreakDurationMs)
@@ -662,6 +742,7 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
             "YouTube" -> youtubeScrollStartTime = time
             "Instagram" -> instagramScrollStartTime = time
             "Threads" -> threadsScrollStartTime = time
+            "Pinterest" -> pinterestScrollStartTime = time
         }
     }
     
@@ -671,6 +752,7 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
             "YouTube" -> lastYoutubeScrollTime = time
             "Instagram" -> lastInstagramScrollTime = time
             "Threads" -> lastThreadsScrollTime = time
+            "Pinterest" -> lastPinterestScrollTime = time
         }
     }
     
@@ -680,6 +762,7 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
             "YouTube" -> youtubeScrollLimiterShown = shown
             "Instagram" -> instagramScrollLimiterShown = shown
             "Threads" -> threadsScrollLimiterShown = shown
+            "Pinterest" -> pinterestScrollLimiterShown = shown
         }
     }
     
@@ -689,6 +772,7 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
             "YouTube" -> lastYoutubeScrollLimiterTriggerTime = time
             "Instagram" -> lastInstagramScrollLimiterTriggerTime = time
             "Threads" -> lastThreadsScrollLimiterTriggerTime = time
+            "Pinterest" -> lastPinterestScrollLimiterTriggerTime = time
         }
     }
     
@@ -698,6 +782,7 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
             "YouTube" -> lastYoutubeProgressNotificationSecond = second
             "Instagram" -> lastInstagramProgressNotificationSecond = second
             "Threads" -> lastThreadsProgressNotificationSecond = second
+            "Pinterest" -> lastPinterestProgressNotificationSecond = second
         }
     }
     
@@ -707,6 +792,7 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
             "YouTube" -> youtubeMandatoryBreakEndTime = time
             "Instagram" -> instagramMandatoryBreakEndTime = time
             "Threads" -> threadsMandatoryBreakEndTime = time
+            "Pinterest" -> pinterestMandatoryBreakEndTime = time
         }
     }
     

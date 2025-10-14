@@ -11,6 +11,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -240,4 +243,319 @@ fun CompactPermissionWarning(
         }
     }
 }
+
+/**
+ * Popup dialog that shows when user clicks the warning icon
+ * Contains tutorial, email, and website information
+ */
+@Composable
+fun SetupHelpDialog(
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Warning,
+                    contentDescription = "Warning",
+                    tint = Color(0xFFFF6B6B),
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "App Not Set Up Correctly",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(
+                    text = "The app is not set up correctly. Please check the tutorial for proper setup instructions.",
+                    fontSize = 14.sp,
+                    color = Color(0xFF757575)
+                )
+                
+                // Tutorial section
+                ContactInfoItem(
+                    icon = Icons.Default.PlayArrow,
+                    title = "YouTube Tutorial",
+                    subtitle = "@mkshaon7",
+                    onClick = {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://youtube.com/@mkshaon7"))
+                        context.startActivity(intent)
+                    }
+                )
+                
+                // Email section
+                ContactInfoItem(
+                    icon = Icons.Default.Email,
+                    title = "Email Support",
+                    subtitle = "mkshaon2024@gmail.com",
+                    onClick = {
+                        val intent = Intent(Intent.ACTION_SENDTO).apply {
+                            data = Uri.parse("mailto:mkshaon2024@gmail.com")
+                            putExtra(Intent.EXTRA_SUBJECT, "Social Sentry Setup Help")
+                        }
+                        context.startActivity(intent)
+                    }
+                )
+                
+                // Website section
+                ContactInfoItem(
+                    icon = Icons.AutoMirrored.Filled.ArrowForward,
+                    title = "Website",
+                    subtitle = "kshaon.com/social_sentry",
+                    onClick = {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://kshaon.com/social_sentry"))
+                        context.startActivity(intent)
+                    }
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Got it")
+            }
+        },
+        containerColor = Color(0xFF1A1A1A),
+        titleContentColor = Color.White,
+        textContentColor = Color(0xFF757575)
+    )
+}
+
+@Composable
+private fun ContactInfoItem(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color(0xFF2A2A2A))
+            .clickable(onClick = onClick)
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = Color(0xFF00BCD4),
+            modifier = Modifier.size(20.dp)
+        )
+        
+        Spacer(modifier = Modifier.width(12.dp))
+        
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                fontSize = 14.sp,
+                color = Color.White,
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text = subtitle,
+                fontSize = 12.sp,
+                color = Color(0xFF757575)
+            )
+        }
+        
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+            contentDescription = "Open",
+            tint = Color(0xFF757575),
+            modifier = Modifier.size(16.dp)
+        )
+    }
+}
+
+@Composable
+private fun MissingPermissionItem(
+    permissionName: String,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(6.dp))
+            .background(Color(0xFF2A2A2A))
+            .clickable(onClick = onClick)
+            .padding(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Red dot indicator
+        Box(
+            modifier = Modifier
+                .size(6.dp)
+                .clip(RoundedCornerShape(3.dp))
+                .background(Color(0xFFFF6B6B))
+        )
+        
+        Spacer(modifier = Modifier.width(8.dp))
+        
+        Text(
+            text = permissionName,
+            fontSize = 12.sp,
+            color = Color(0xFFFF6B6B),
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.weight(1f)
+        )
+        
+        // Enable button
+        Text(
+            text = "Enable",
+            fontSize = 10.sp,
+            color = Color(0xFF4CAF50),
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier
+                .clip(RoundedCornerShape(4.dp))
+                .background(Color(0xFF4CAF50).copy(alpha = 0.2f))
+                .padding(horizontal = 8.dp, vertical = 4.dp)
+        )
+    }
+}
+
+/**
+ * Permission dialog specifically for SettingsScreen
+ * Shows missing permissions with grant actions
+ */
+@Composable
+fun SettingsPermissionDialog(
+    permissionStatus: PermissionStatus,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Warning,
+                    contentDescription = "Warning",
+                    tint = Color(0xFFFF6B6B),
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Missing Permissions (${permissionStatus.missingCount})",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = "The following permissions are required for the app to function properly:",
+                    fontSize = 14.sp,
+                    color = Color(0xFF757575)
+                )
+                
+                // Missing Permissions List
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    permissionStatus.missingPermissions.forEach { permission ->
+                        SettingsPermissionItem(
+                            permissionName = permission,
+                            onClick = {
+                                when (permission) {
+                                    "Accessibility Service" -> {
+                                        val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                                        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                        context.startActivity(intent)
+                                    }
+                                    "Usage Stats" -> {
+                                        val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
+                                        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                        context.startActivity(intent)
+                                    }
+                                    "Display Over Apps" -> {
+                                        val intent = Intent(
+                                            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                            Uri.parse("package:${context.packageName}")
+                                        )
+                                        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                        context.startActivity(intent)
+                                    }
+                                }
+                            }
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close")
+            }
+        },
+        containerColor = Color(0xFF1A1A1A),
+        titleContentColor = Color.White,
+        textContentColor = Color(0xFF757575)
+    )
+}
+
+@Composable
+private fun SettingsPermissionItem(
+    permissionName: String,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color(0xFF2A2A2A))
+            .clickable(onClick = onClick)
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Red dot indicator
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .background(Color(0xFFFF6B6B))
+        )
+        
+        Spacer(modifier = Modifier.width(12.dp))
+        
+        Text(
+            text = permissionName,
+            fontSize = 14.sp,
+            color = Color.White,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.weight(1f)
+        )
+        
+        // Grant button
+        Text(
+            text = "Grant",
+            fontSize = 12.sp,
+            color = Color(0xFF4CAF50),
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier
+                .clip(RoundedCornerShape(6.dp))
+                .background(Color(0xFF4CAF50).copy(alpha = 0.2f))
+                .padding(horizontal = 12.dp, vertical = 6.dp)
+        )
+    }
+}
+
 

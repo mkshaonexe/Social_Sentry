@@ -77,6 +77,17 @@ data class SocialSentrySettings(
             )
         )
     ),
+    val pinterest: SocialApp = SocialApp(
+        name = "Pinterest",
+        packageName = "com.pinterest",
+        isBlocked = true,
+        features = listOf(
+            BlockableFeature(
+                name = "Total Usage",
+                isEnabled = true
+            )
+        )
+    ),
     // Daily temporary unblock configuration (minutes)
     val dailyTemporaryUnblockMinutes: Int = 10,
     // Remaining allowance for the current day in milliseconds
@@ -94,6 +105,7 @@ data class SocialSentrySettings(
     val scrollLimiterYoutubeEnabled: Boolean = false,
     val scrollLimiterFacebookEnabled: Boolean = false,
     val scrollLimiterInstagramEnabled: Boolean = false,
+    val scrollLimiterPinterestEnabled: Boolean = false,
     // Threads (Instagram Threads) scroll limiter toggle
     val scrollLimiterThreadsEnabled: Boolean = false,
     // Legacy field kept for backwards compatibility

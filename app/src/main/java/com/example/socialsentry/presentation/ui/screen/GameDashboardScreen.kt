@@ -2448,6 +2448,7 @@ private fun getAppDisplayName(packageName: String): String {
         "com.instagram.android" -> "Instagram"
         "com.facebook.katana" -> "Facebook"
         "com.zhiliaoapp.musically" -> "TikTok"
+        "com.pinterest" -> "Pinterest"
         "com.twitter.android" -> "Twitter"
         "com.snapchat.android" -> "Snapchat"
         "com.whatsapp" -> "WhatsApp"

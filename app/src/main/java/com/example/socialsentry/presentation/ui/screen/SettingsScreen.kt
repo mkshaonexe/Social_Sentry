@@ -35,7 +35,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.socialsentry.data.model.SocialApp
 import com.example.socialsentry.presentation.ui.components.AccessibilityServiceCard
 import com.example.socialsentry.presentation.ui.components.SocialAppCard
+import com.example.socialsentry.presentation.ui.components.SettingsPermissionDialog
 import com.example.socialsentry.presentation.viewmodel.SocialSentryViewModel
+import com.example.socialsentry.util.PermissionChecker
 import org.koin.androidx.compose.koinViewModel
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
@@ -62,12 +64,17 @@ fun SettingsScreen(
     var isScrollLimiterExpanded by remember { mutableStateOf(false) }
     var isGameDashboardExpanded by remember { mutableStateOf(false) }
     var showAccessibilityPanel by remember { mutableStateOf(false) }
+    var showPermissionDialog by remember { mutableStateOf(false) }
     
-    // Check accessibility service status
+    // Check permission status
+    var permissionStatus by remember { mutableStateOf(PermissionChecker.getPermissionStatus(context)) }
+    
+    // Check accessibility service status and permissions
     LaunchedEffect(lifecycleState) {
         when (lifecycleState) {
             Lifecycle.State.RESUMED -> {
                 isAccessibilityEnabled = context.isAccessibilityServiceEnabled()
+                permissionStatus = PermissionChecker.getPermissionStatus(context)
             }
             else -> {}
         }
@@ -77,7 +84,8 @@ fun SettingsScreen(
         settings.youtube,
         settings.facebook,
         settings.instagram,
-        settings.tiktok
+        settings.tiktok,
+        settings.pinterest
     )
     
     Box(
@@ -101,17 +109,17 @@ fun SettingsScreen(
             )
         }
 
-        // Top-right warning/close icon to reveal/hide Accessibility section when disabled
-        if (!isAccessibilityEnabled) {
+        // Top-right warning icon to show permission dialog when permissions are missing
+        if (!permissionStatus.hasAllPermissions) {
             IconButton(
-                onClick = { showAccessibilityPanel = !showAccessibilityPanel },
+                onClick = { showPermissionDialog = true },
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(16.dp)
             ) {
                 Icon(
-                    imageVector = if (showAccessibilityPanel) Icons.Default.KeyboardArrowUp else Icons.Rounded.Warning,
-                    contentDescription = if (showAccessibilityPanel) "Hide accessibility info" else "Accessibility not enabled",
+                    imageVector = Icons.Rounded.Warning,
+                    contentDescription = "Missing Permissions",
                     tint = Color(0xFFFF9800),
                     modifier = Modifier.size(28.dp)
                 )
@@ -219,7 +227,7 @@ fun SettingsScreen(
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "Shows a 30-second break popup after 1 minute of scrolling",
+                                text = "Shows a 30-second break popup after 2 minutes of scrolling (Facebook) or 1 minute (other apps)",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
                             )
@@ -468,6 +476,61 @@ fun SettingsScreen(
                     }
                 }
             }
+            
+            // Pinterest Scroll Limiter
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp)),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(20.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "📌 Pinterest",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Limit total usage time (treats all usage as reels time)",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.width(12.dp))
+                        
+                        Switch(
+                            checked = settings.scrollLimiterPinterestEnabled,
+                            onCheckedChange = { enabled ->
+                                viewModel.updateScrollLimiterPinterestEnabled(enabled)
+                            },
+                            enabled = isAccessibilityEnabled,
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color(0xFF4CAF50),
+                                checkedTrackColor = Color(0xFF4CAF50).copy(alpha = 0.5f),
+                                uncheckedThumbColor = Color(0xFF9E9E9E),
+                                uncheckedTrackColor = Color(0xFF9E9E9E).copy(alpha = 0.3f),
+                                disabledCheckedThumbColor = Color(0xFF4CAF50).copy(alpha = 0.5f),
+                                disabledCheckedTrackColor = Color(0xFF4CAF50).copy(alpha = 0.3f),
+                                disabledUncheckedThumbColor = Color(0xFF757575),
+                                disabledUncheckedTrackColor = Color(0xFF757575).copy(alpha = 0.3f)
+                            )
+                        )
+                    }
+                }
+            }
         }
 
         // Game Dashboard - Clickable to expand/collapse and edit content
@@ -636,6 +699,14 @@ fun SettingsScreen(
                 }
             }
         }
+        }
+        
+        // Permission Dialog
+        if (showPermissionDialog) {
+            SettingsPermissionDialog(
+                permissionStatus = permissionStatus,
+                onDismiss = { showPermissionDialog = false }
+            )
         }
     }
 }

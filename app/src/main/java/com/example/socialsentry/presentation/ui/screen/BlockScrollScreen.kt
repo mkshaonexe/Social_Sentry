@@ -28,6 +28,7 @@ import com.example.socialsentry.presentation.ui.components.AnimatedToggleSwitch
 import com.example.socialsentry.presentation.ui.components.PermissionWarningBanner
 import com.example.socialsentry.presentation.ui.components.CompactPermissionWarning
 import com.example.socialsentry.presentation.ui.components.PermissionDetailsDialog
+import com.example.socialsentry.presentation.ui.components.SetupHelpDialog
 import com.example.socialsentry.presentation.viewmodel.SocialSentryViewModel
 import com.example.socialsentry.util.PermissionChecker
 import com.example.socialsentry.ui.theme.BrightPink
@@ -86,6 +87,7 @@ fun BlockScrollScreen(
     // Check permission status
     var permissionStatus by remember { mutableStateOf(PermissionChecker.getPermissionStatus(context)) }
     var showPermissionDialog by remember { mutableStateOf(false) }
+    var showSetupHelpDialog by remember { mutableStateOf(false) }
     
     // Check accessibility service status
     LaunchedEffect(lifecycleState) {
@@ -178,7 +180,7 @@ fun BlockScrollScreen(
             if (!permissionStatus.hasAllPermissions) {
                 CompactPermissionWarning(
                     permissionStatus = permissionStatus,
-                    onClick = { showPermissionDialog = true },
+                    onClick = { showSetupHelpDialog = true },
                     modifier = Modifier
                 )
             } else {
@@ -810,6 +812,13 @@ fun BlockScrollScreen(
             PermissionDetailsDialog(
                 permissionStatus = permissionStatus,
                 onDismiss = { showPermissionDialog = false }
+            )
+        }
+        
+        // Setup Help Dialog
+        if (showSetupHelpDialog) {
+            SetupHelpDialog(
+                onDismiss = { showSetupHelpDialog = false }
             )
         }
     }

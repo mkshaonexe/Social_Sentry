@@ -165,7 +165,7 @@ fun ScrollLimiterOverlay(
             
             // Message
             Text(
-                text = "You've been scrolling $appName for over 1 minute.\nLet's give your mind a rest.",
+                text = "You've been scrolling $appName for over ${if (appName == "Facebook") "2 minutes" else "1 minute"}.\nLet's give your mind a rest.",
                 fontSize = 18.sp,
                 color = Color.White.copy(alpha = 0.8f),
                 textAlign = TextAlign.Center,
