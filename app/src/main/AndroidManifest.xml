@@ -51,6 +51,11 @@
             android:theme="@style/Theme.SocialSentry" />
 
         <activity
+            android:name=".presentation.ui.study.StudyTimerActivity"
+            android:exported="false"
+            android:theme="@style/Theme.SocialSentry" />
+
+        <activity
             android:name=".presentation.ui.overlay.ScrollLimiterOverlayActivity"
             android:exported="false"
             android:launchMode="singleInstance"

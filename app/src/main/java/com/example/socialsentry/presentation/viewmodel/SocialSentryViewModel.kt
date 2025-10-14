@@ -174,6 +174,10 @@ class SocialSentryViewModel(
         addManualUnblockMinutes(walkingMinutes)
     }
 
+    fun addMinutesFromStudy(studyMinutes: Int) {
+        addManualUnblockMinutes(studyMinutes)
+    }
+
     fun rescheduleAllowanceWork() {
         viewModelScope.launch {
             val manager = unblockManager ?: UnblockAllowanceManager(
