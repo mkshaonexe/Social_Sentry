@@ -153,10 +153,9 @@ class WalkingCounterActivity : ComponentActivity() {
         // Unregister sensors
         sensorManager.unregisterListener(sensorEventListener)
         
-        // Calculate earned time based on current values
-        val timeBasedMinutes = (walkingTime / 120).toInt() // 2 minutes = 120 seconds
-        val distanceBasedMinutes = (walkingDistance / 5.0).toInt() // 5 meters
-        val earnedMinutes = maxOf(timeBasedMinutes, distanceBasedMinutes)
+        // Calculate earned time based on distance walked
+        // 250 meters = 1 minute of reels time
+        val earnedMinutes = (walkingDistance / 250.0).toInt()
         
         if (earnedMinutes > 0) {
             val resultIntent = Intent().apply {
@@ -300,10 +299,7 @@ fun WalkingCounterScreen(
             
             // Earned Time Display
             if (isWalking || stepCount > 0) {
-                val earnedMinutes = maxOf(
-                    (walkingTime / 120).toInt(),
-                    (walkingDistance / 5.0).toInt()
-                )
+                val earnedMinutes = (walkingDistance / 250.0).toInt()
                 
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -317,7 +313,7 @@ fun WalkingCounterScreen(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
-                            text = "Earned Time",
+                            text = "Earned Reels Time",
                             color = Color(0xFF4CAF50),
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold
@@ -333,7 +329,7 @@ fun WalkingCounterScreen(
                         )
                         
                         Text(
-                            text = "2 min walking OR 5m distance = 1 min unblock time",
+                            text = "250m walking = 1 min reels time",
                             color = Color.White.copy(alpha = 0.7f),
                             fontSize = 12.sp,
                             textAlign = TextAlign.Center
