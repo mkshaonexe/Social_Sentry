@@ -54,6 +54,7 @@ import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import com.example.socialsentry.presentation.ui.pushup.PushUpCounterActivity
+import com.example.socialsentry.presentation.ui.walking.WalkingCounterActivity
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalAnimationApi::class)
@@ -110,6 +111,25 @@ fun BlockScrollScreen(
                 scope.launch { 
                     viewModel.addMinutesFromPushUps(count)
                     Toast.makeText(context, "Added $count minutes from push-ups!", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+    
+    // Walking activity launcher
+    val walkingLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val minutes = result.data?.getIntExtra("walking_minutes", 0) ?: 0
+            val steps = result.data?.getIntExtra("step_count", 0) ?: 0
+            val time = result.data?.getLongExtra("walking_time", 0L) ?: 0L
+            val distance = result.data?.getDoubleExtra("walking_distance", 0.0) ?: 0.0
+            
+            if (minutes > 0) {
+                scope.launch { 
+                    viewModel.addMinutesFromWalking(minutes)
+                    Toast.makeText(context, "Added $minutes minutes from walking! ($steps steps, ${String.format("%.1f", distance)}m)", Toast.LENGTH_LONG).show()
                 }
             }
         }
@@ -466,10 +486,57 @@ fun BlockScrollScreen(
                                 }
                             }
                             
+                            Spacer(modifier = Modifier.height(8.dp))
+                            
+                            Button(
+                                onClick = {
+                                    showAddTimeDialog = false
+                                    showDeveloperMode = false
+                                    developerPassword = ""
+                                    val intent = Intent(context, WalkingCounterActivity::class.java)
+                                    walkingLauncher.launch(intent)
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(56.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF4CAF50)
+                                ),
+                                shape = RoundedCornerShape(12.dp),
+                                elevation = ButtonDefaults.buttonElevation(
+                                    defaultElevation = 4.dp,
+                                    pressedElevation = 8.dp
+                                )
+                            ) {
+                                Row(
+                                    horizontalArrangement = Arrangement.Center,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "🚶‍♂️",
+                                        fontSize = 24.sp,
+                                        modifier = Modifier.padding(end = 8.dp)
+                                    )
+                                    Text(
+                                        text = "Go Walking",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                            
                             Text(
                                 text = "1 push-up = 1 minute unblock time",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = Color(0xFF00BCD4),
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            
+                            Text(
+                                text = "2 min walking OR 5m distance = 1 minute unblock time",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFF4CAF50),
                                 textAlign = TextAlign.Center,
                                 modifier = Modifier.fillMaxWidth()
                             )
