@@ -47,6 +47,15 @@ import android.content.Intent
 import com.example.socialsentry.presentation.ui.pushup.PushUpCounterActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Text
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.TextButton
+import android.widget.Toast
+import android.content.SharedPreferences
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -66,6 +75,12 @@ fun SettingsScreen(
     var showAccessibilityPanel by remember { mutableStateOf(false) }
     var showPermissionDialog by remember { mutableStateOf(false) }
     
+    // Developer mode state
+    var developerClickCount by remember { mutableStateOf(0) }
+    var isDeveloperMode by remember { mutableStateOf(false) }
+    var showDeveloperDropdown by remember { mutableStateOf(false) }
+    var showDeveloperDialog by remember { mutableStateOf(false) }
+    
     // Check permission status
     var permissionStatus by remember { mutableStateOf(PermissionChecker.getPermissionStatus(context)) }
     
@@ -77,6 +92,26 @@ fun SettingsScreen(
                 permissionStatus = PermissionChecker.getPermissionStatus(context)
             }
             else -> {}
+        }
+    }
+    
+    // Load developer mode state from SharedPreferences
+    LaunchedEffect(Unit) {
+        val prefs = context.getSharedPreferences("developer_mode", Context.MODE_PRIVATE)
+        isDeveloperMode = prefs.getBoolean("is_developer_mode", false)
+    }
+    
+    // Developer mode click handler
+    fun handleDeveloperClick() {
+        developerClickCount++
+        if (developerClickCount >= 7) {
+            isDeveloperMode = true
+            developerClickCount = 0
+            Toast.makeText(context, "You are now a developer", Toast.LENGTH_SHORT).show()
+            
+            // Save developer mode state
+            val prefs = context.getSharedPreferences("developer_mode", Context.MODE_PRIVATE)
+            prefs.edit().putBoolean("is_developer_mode", true).apply()
         }
     }
     
@@ -533,13 +568,19 @@ fun SettingsScreen(
             }
         }
 
-        // Game Dashboard - Clickable to expand/collapse and edit content
+        // Developer Mode - Clickable to expand/collapse and access developer features
         item {
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(16.dp))
-                    .clickable { isGameDashboardExpanded = !isGameDashboardExpanded },
+                    .clickable { 
+                        if (isDeveloperMode) {
+                            isGameDashboardExpanded = !isGameDashboardExpanded
+                        } else {
+                            handleDeveloperClick()
+                        }
+                    },
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surface
                 )
@@ -553,31 +594,28 @@ fun SettingsScreen(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Game Dashboard",
+                            text = "Developer Mode",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onBackground
                         )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Customize name, title, images and stats",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                    }
+                    if (isDeveloperMode) {
+                        Icon(
+                            imageVector = if (isGameDashboardExpanded)
+                                Icons.Default.KeyboardArrowUp
+                            else
+                                Icons.Default.KeyboardArrowDown,
+                            contentDescription = if (isGameDashboardExpanded) "Collapse" else "Expand",
+                            tint = MaterialTheme.colorScheme.onBackground
                         )
                     }
-                    Icon(
-                        imageVector = if (isGameDashboardExpanded)
-                            Icons.Default.KeyboardArrowUp
-                        else
-                            Icons.Default.KeyboardArrowDown,
-                        contentDescription = if (isGameDashboardExpanded) "Collapse" else "Expand",
-                        tint = MaterialTheme.colorScheme.onBackground
-                    )
                 }
             }
         }
 
-        if (isGameDashboardExpanded) {
+        // Developer Mode Expanded Content - Game Dashboard Editor
+        if (isGameDashboardExpanded && isDeveloperMode) {
             item {
                 val dash = settings.gameDashboard
                 val bannerPicker = rememberLauncherForActivityResult(
@@ -699,6 +737,34 @@ fun SettingsScreen(
                 }
             }
         }
+        }
+        
+        // Developer Advanced Settings Dialog
+        if (showDeveloperDialog) {
+            AlertDialog(
+                onDismissRequest = { showDeveloperDialog = false },
+                title = { Text("Developer Settings") },
+                text = { 
+                    Text("Advanced developer options:\n\n• Reset all settings\n• Clear app data\n• Force accessibility restart\n• Debug logging\n• Export logs\n• Performance metrics") 
+                },
+                confirmButton = {
+                    Button(
+                        onClick = { 
+                            showDeveloperDialog = false
+                            Toast.makeText(context, "Developer settings accessed", Toast.LENGTH_SHORT).show()
+                        }
+                    ) {
+                        Text("OK")
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = { showDeveloperDialog = false }
+                    ) {
+                        Text("Cancel")
+                    }
+                }
+            )
         }
         
         // Permission Dialog
