@@ -48,13 +48,15 @@ import com.example.socialsentry.presentation.ui.pushup.PushUpCounterActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.runtime.rememberCoroutineScope
+import android.widget.Toast
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.TextButton
-import android.widget.Toast
 import android.content.SharedPreferences
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -66,6 +68,7 @@ fun SettingsScreen(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val lifecycleState by lifecycleOwner.lifecycle.currentStateFlow.collectAsState()
+    val scope = rememberCoroutineScope()
     
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     var isAccessibilityEnabled by remember { mutableStateOf(false) }
@@ -80,6 +83,10 @@ fun SettingsScreen(
     var isDeveloperMode by remember { mutableStateOf(false) }
     var showDeveloperDropdown by remember { mutableStateOf(false) }
     var showDeveloperDialog by remember { mutableStateOf(false) }
+    
+    // Manual time entry state
+    var manualTimeText by remember { mutableStateOf("") }
+    var showManualTimeDialog by remember { mutableStateOf(false) }
     
     // Check permission status
     var permissionStatus by remember { mutableStateOf(PermissionChecker.getPermissionStatus(context)) }
@@ -733,6 +740,73 @@ fun SettingsScreen(
                         ) {
                             Text("📷 Change Photo")
                         }
+                        
+                        // Manual Time Entry Section
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                        
+                        Text(
+                            text = "Manual Time Entry",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onBackground,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        
+                        
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            OutlinedTextField(
+                                value = manualTimeText,
+                                onValueChange = { input ->
+                                    manualTimeText = input.filter { it.isDigit() }.take(3)
+                                },
+                                label = { Text("Minutes") },
+                                placeholder = { Text("0") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier.weight(1f)
+                            )
+                            
+                            Button(
+                                onClick = {
+                                    val minutes = manualTimeText.toIntOrNull() ?: 0
+                                    if (minutes > 0) {
+                                        showManualTimeDialog = true
+                                    } else {
+                                        Toast.makeText(context, "Enter minutes > 0", Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF00BCD4)
+                                )
+                            ) {
+                                Text("Add Time")
+                            }
+                        }
+                        
+                        // Quick add buttons for manual time
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            listOf(1, 5, 10, 30).forEach { quick ->
+                                OutlinedButton(
+                                    onClick = {
+                                        val current = manualTimeText.toIntOrNull() ?: 0
+                                        manualTimeText = (current + quick).toString()
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        contentColor = Color(0xFF00BCD4)
+                                    ),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00BCD4))
+                                ) {
+                                    Text("+${quick}m")
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -760,6 +834,46 @@ fun SettingsScreen(
                 dismissButton = {
                     TextButton(
                         onClick = { showDeveloperDialog = false }
+                    ) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        }
+        
+        // Manual Time Entry Confirmation Dialog
+        if (showManualTimeDialog) {
+            AlertDialog(
+                onDismissRequest = { showManualTimeDialog = false },
+                title = { Text("Confirm Manual Time Entry") },
+                text = { 
+                    Text("Are you sure you want to add ${manualTimeText} minutes of unblock time?") 
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            val minutes = manualTimeText.toIntOrNull() ?: 0
+                            scope.launch {
+                                try {
+                                    viewModel.addManualUnblockMinutes(minutes)
+                                    Toast.makeText(context, "Added $minutes minutes successfully!", Toast.LENGTH_LONG).show()
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Error adding minutes: ${e.message}", Toast.LENGTH_LONG).show()
+                                }
+                            }
+                            showManualTimeDialog = false
+                            manualTimeText = ""
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF00BCD4)
+                        )
+                    ) {
+                        Text("Confirm")
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = { showManualTimeDialog = false }
                     ) {
                         Text("Cancel")
                     }
