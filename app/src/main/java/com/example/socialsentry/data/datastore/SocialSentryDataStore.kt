@@ -54,5 +54,40 @@ class SocialSentryDataStore(private val context: Context) {
     suspend fun getCurrentSettings(): SocialSentrySettings {
         return settingsFlow.first()
     }
+    
+    // Tutorial management methods
+    suspend fun updateTutorialStep(step: Int) {
+        context.socialSentrySettingsStore.updateData { current ->
+            current.copy(tutorialStep = step)
+        }
+    }
+    
+    suspend fun completeTutorial() {
+        context.socialSentrySettingsStore.updateData { current ->
+            current.copy(
+                hasCompletedTutorial = true,
+                isFirstTimeUser = false,
+                tutorialStep = 6
+            )
+        }
+    }
+    
+    suspend fun markTutorialShown() {
+        val currentDate = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE)
+        context.socialSentrySettingsStore.updateData { current ->
+            current.copy(lastTutorialShownDate = currentDate)
+        }
+    }
+    
+    suspend fun resetTutorial() {
+        context.socialSentrySettingsStore.updateData { current ->
+            current.copy(
+                isFirstTimeUser = true,
+                hasCompletedTutorial = false,
+                tutorialStep = 0,
+                lastTutorialShownDate = null
+            )
+        }
+    }
 }
 

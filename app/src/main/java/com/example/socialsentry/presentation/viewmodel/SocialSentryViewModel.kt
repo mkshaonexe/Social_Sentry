@@ -243,6 +243,31 @@ class SocialSentryViewModel(
         }
     }
 
+    // Tutorial management methods
+    fun updateTutorialStep(step: Int) {
+        viewModelScope.launch {
+            dataStore.updateTutorialStep(step)
+        }
+    }
+    
+    fun completeTutorial() {
+        viewModelScope.launch {
+            dataStore.completeTutorial()
+        }
+    }
+    
+    fun markTutorialShown() {
+        viewModelScope.launch {
+            dataStore.markTutorialShown()
+        }
+    }
+    
+    fun resetTutorial() {
+        viewModelScope.launch {
+            dataStore.resetTutorial()
+        }
+    }
+
     private fun dataStoreContext(): android.content.Context {
         // SocialSentryDataStore already holds androidContext via Koin, but we need a context
         // The simplest approach is to use reflection via the stored DataStore context itself.

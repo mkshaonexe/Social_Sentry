@@ -113,7 +113,12 @@ data class SocialSentrySettings(
     val scrollLimiterEnabled: Boolean = false
     ,
     // Game Dashboard configuration
-    val gameDashboard: GameDashboard = GameDashboard()
+    val gameDashboard: GameDashboard = GameDashboard(),
+    // Tutorial system for first-time users
+    val isFirstTimeUser: Boolean = true,
+    val hasCompletedTutorial: Boolean = false,
+    val tutorialStep: Int = 0, // 0 = not started, 1-6 = tutorial steps
+    val lastTutorialShownDate: String? = null // ISO-8601 date when tutorial was last shown
 )
 
 @Serializable

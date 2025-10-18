@@ -25,12 +25,16 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
 import androidx.core.app.ActivityCompat
 import androidx.core.view.WindowCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.socialsentry.domain.SocialSentryNotificationManager
 import com.example.socialsentry.presentation.ui.screen.BlockScrollScreen
 import com.example.socialsentry.presentation.ui.screen.GameDashboardScreen
 import com.example.socialsentry.presentation.ui.screen.SettingsScreen
 import com.example.socialsentry.presentation.ui.screen.AboutDeveloperScreen
+import com.example.socialsentry.presentation.ui.screen.TutorialScreen
+import com.example.socialsentry.presentation.viewmodel.SocialSentryViewModel
 import com.example.socialsentry.ui.theme.SocialSentryTheme
+import org.koin.androidx.compose.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 class MainActivity : ComponentActivity() {
@@ -68,7 +72,19 @@ class MainActivity : ComponentActivity() {
         
         setContent {
             SocialSentryTheme {
+                val viewModel: SocialSentryViewModel = koinViewModel()
+                val settings by viewModel.settings.collectAsStateWithLifecycle()
+                
                 var showSettings by remember { mutableStateOf(false) }
+                var showTutorial by remember { mutableStateOf(false) }
+                
+                // Check if user is first-time user and hasn't completed tutorial
+                LaunchedEffect(settings) {
+                    if (settings.isFirstTimeUser && !settings.hasCompletedTutorial) {
+                        showTutorial = true
+                        viewModel.markTutorialShown()
+                    }
+                }
                 
                 // Check and request notification permission when app opens
                 LaunchedEffect(Unit) {
@@ -77,23 +93,38 @@ class MainActivity : ComponentActivity() {
                     }
                 }
                 
-                if (showSettings) {
-                    SettingsScreen(
-                        onNavigateBack = { showSettings = false }
-                    )
-                } else {
-                    val pagerState = rememberPagerState(initialPage = 1, pageCount = { 3 })
-                    HorizontalPager(
-                        state = pagerState,
-                        modifier = Modifier.fillMaxSize()
-                    ) { page ->
-                        when (page) {
-                            0 -> GameDashboardScreen()
-                            1 -> BlockScrollScreen(
-                                onNavigateToSettings = { showSettings = true },
-                                onRequestNotificationPermission = { requestNotificationPermission() }
-                            )
-                            2 -> AboutDeveloperScreen()
+                when {
+                    showTutorial -> {
+                        TutorialScreen(
+                            onComplete = {
+                                viewModel.completeTutorial()
+                                showTutorial = false
+                            },
+                            onSkip = {
+                                viewModel.completeTutorial()
+                                showTutorial = false
+                            }
+                        )
+                    }
+                    showSettings -> {
+                        SettingsScreen(
+                            onNavigateBack = { showSettings = false }
+                        )
+                    }
+                    else -> {
+                        val pagerState = rememberPagerState(initialPage = 1, pageCount = { 3 })
+                        HorizontalPager(
+                            state = pagerState,
+                            modifier = Modifier.fillMaxSize()
+                        ) { page ->
+                            when (page) {
+                                0 -> GameDashboardScreen()
+                                1 -> BlockScrollScreen(
+                                    onNavigateToSettings = { showSettings = true },
+                                    onRequestNotificationPermission = { requestNotificationPermission() }
+                                )
+                                2 -> AboutDeveloperScreen()
+                            }
                         }
                     }
                 }
