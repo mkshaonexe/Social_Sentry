@@ -621,6 +621,45 @@ fun SettingsScreen(
             }
         }
 
+        // App Version Information
+        item {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp)),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "App Version",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "0.3.1",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF00BCD4)
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Last updated: ${getLastUpdateDate()}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                    )
+                }
+            }
+        }
+
         // Developer Mode Expanded Content - Game Dashboard Editor
         if (isGameDashboardExpanded && isDeveloperMode) {
             item {
@@ -909,4 +948,9 @@ private fun Context.isAccessibilityServiceEnabled(): Boolean {
     
     android.util.Log.d("SocialSentry", "Looking for service: $targetServiceId, found: $isEnabled")
     return isEnabled
+}
+
+private fun getLastUpdateDate(): String {
+    // Return the last update date - you can update this when you release new versions
+    return "12:05 PM, October 18, 2025"
 }

@@ -580,6 +580,63 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
     private val youtubeTrackingCooldownMs = 2000L // 2 second cooldown between tracking calls
     private var lastVideoDetectionTime: Long = 0L
 
+    /**
+     * Detects if user is currently watching a YouTube video (not scrolling feed)
+     * Checks for video player UI elements in the accessibility hierarchy
+     */
+    private fun isUserWatchingYouTubeVideo(): Boolean {
+        try {
+            val rootNode = rootInActiveWindow ?: return false
+            
+            // Check for video player indicators in YouTube
+            // These class names and IDs are used by YouTube's video player
+            val videoPlayerIndicators = listOf(
+                "com.google.android.youtube.player",
+                "player_view",
+                "player_fragment_container",
+                "watch_player",
+                "video_surface_view",
+                "player_controls_container",
+                "youtube_controls",
+                "exo_player"
+            )
+            
+            // Recursively search for video player elements
+            fun searchForVideoPlayer(node: android.view.accessibility.AccessibilityNodeInfo?): Boolean {
+                if (node == null) return false
+                
+                val className = node.className?.toString() ?: ""
+                val viewId = node.viewIdResourceName ?: ""
+                
+                // Check if this node indicates a video player
+                for (indicator in videoPlayerIndicators) {
+                    if (className.contains(indicator, ignoreCase = true) || 
+                        viewId.contains(indicator, ignoreCase = true)) {
+                        Log.d(TAG, "YouTube video player detected: className=$className, viewId=$viewId")
+                        return true
+                    }
+                }
+                
+                // Check children recursively
+                for (i in 0 until node.childCount) {
+                    if (searchForVideoPlayer(node.getChild(i))) {
+                        return true
+                    }
+                }
+                
+                return false
+            }
+            
+            val isWatching = searchForVideoPlayer(rootNode)
+            rootNode.recycle()
+            return isWatching
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error detecting YouTube video player: ${e.message}")
+            return false
+        }
+    }
+
     private fun trackMindfulScroll(packageName: String, event: AccessibilityEvent?) {
         // Only consider scroll events
         if (event?.eventType != AccessibilityEvent.TYPE_VIEW_SCROLLED) {
@@ -627,6 +684,12 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
         
         if (!isScrollOrInteraction) {
             Log.v(TAG, "$appName scroll limiter: Event type $eventType not tracked, ignoring")
+            return
+        }
+        
+        // Special handling for YouTube: Don't track if user is watching a video
+        if (appName == "YouTube" && isUserWatchingYouTubeVideo()) {
+            Log.v(TAG, "YouTube scroll limiter: User is watching a video, not tracking")
             return
         }
         
@@ -680,7 +743,11 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
             
             // Show toast to inform user tracking has started
             android.os.Handler(android.os.Looper.getMainLooper()).post {
-                val limitText = if (appName == "Facebook") "2 min limit" else "1 min limit"
+                val limitText = when (appName) {
+                    "Facebook" -> "2 min limit"
+                    "YouTube" -> "5 min limit"
+                    else -> "1 min limit"
+                }
                 android.widget.Toast.makeText(
                     this,
                     "⏱️ $appName usage timer started ($limitText)",
@@ -696,12 +763,19 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
         // App-specific time thresholds
         val (thresholdMs, thresholdSeconds) = when (appName) {
             "Facebook" -> Pair(120000L, 120) // 2 minutes for Facebook
+            "YouTube" -> Pair(300000L, 300) // 5 minutes for YouTube
             else -> Pair(60000L, 60) // 1 minute for other apps
         }
         
-        // Show progress notifications every 20 seconds
+        // Show progress notifications at appropriate intervals
         val seconds = (scrollDuration / 1000).toInt()
-        if (seconds >= 20 && seconds < thresholdSeconds && (seconds == 20 || seconds == 40 || (appName == "Facebook" && (seconds == 60 || seconds == 80 || seconds == 100))) && lastProgressSecond != seconds) {
+        val shouldShowProgress = when (appName) {
+            "Facebook" -> seconds >= 20 && seconds < thresholdSeconds && (seconds == 20 || seconds == 40 || seconds == 60 || seconds == 80 || seconds == 100)
+            "YouTube" -> seconds >= 60 && seconds < thresholdSeconds && (seconds == 60 || seconds == 120 || seconds == 180 || seconds == 240)
+            else -> seconds >= 20 && seconds < thresholdSeconds && (seconds == 20 || seconds == 40)
+        }
+        
+        if (shouldShowProgress && lastProgressSecond != seconds) {
             setAppLastProgressSecond(appName, seconds)
             Log.d(TAG, "$appName scroll limiter: ${seconds}s elapsed")
             android.os.Handler(android.os.Looper.getMainLooper()).post {
@@ -716,7 +790,11 @@ class SocialSentryAccessibilityService : AccessibilityService(), KoinComponent {
         Log.v(TAG, "$appName scroll limiter: Duration = ${scrollDuration/1000}s")
         
         if (!scrollLimiterShown && scrollDuration >= thresholdMs) {
-            val thresholdText = if (appName == "Facebook") "2 minute" else "1 minute"
+            val thresholdText = when (appName) {
+                "Facebook" -> "2 minute"
+                "YouTube" -> "5 minute"
+                else -> "1 minute"
+            }
             Log.d(TAG, "$appName scroll limiter: 🚨 $thresholdText threshold reached (${scrollDuration/1000}s), showing overlay")
             
             // Activate mandatory 30-second break

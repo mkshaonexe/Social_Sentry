@@ -36,9 +36,10 @@ Successfully implemented individual scroll limiter toggles for YouTube, Facebook
   - `resetAppScrollTracking()`
 
 #### Functionality:
-- Tracks user scrolling/interaction for 1 minute
-- Shows progress toasts at 20s and 40s
-- Triggers mandatory 30-second break after 1 minute of continuous use
+- **Facebook**: Tracks user scrolling/interaction for 2 minutes, shows progress toasts at 20s, 40s, 60s, 80s, 100s
+- **YouTube**: Tracks user scrolling/interaction for 5 minutes, shows progress toasts at 60s, 120s, 180s, 240s
+- **Other apps**: Tracks user scrolling/interaction for 1 minute, shows progress toasts at 20s and 40s
+- Triggers mandatory 30-second break after reaching the time threshold
 - Each app has independent tracking and break timers
 - Respects individual app settings from the settings screen
 
